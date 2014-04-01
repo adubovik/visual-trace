@@ -2,12 +2,20 @@
    ViewPatterns
   #-}
 
-module Graphics.Gloss.Utils where
+module Graphics.Gloss.Utils (
+   getPictureExt
+ , focusPic
+ , focusViewState
+ , focusTrans
+ ) where
 
 import Data.Monoid
 
 import Graphics.Gloss.Data.ExtentF
+import Graphics.Gloss.Data.ViewState
+import Graphics.Gloss.Data.ViewState.Utils
 import Graphics.Gloss
+
 
 getPictureExt :: Picture -> Ext
 getPictureExt Blank = mempty
@@ -31,13 +39,30 @@ getPictureExt (Rotate _ p) = getPictureExt p -- FIX ME!
 getPictureExt (Scale x y p) = scaleExt x y $ getPictureExt p
 getPictureExt (Pictures ps) = mconcat $ map getPictureExt ps
 
--- FIX ME: rewrite via matrix transformations
-focusTrans :: Ext -> (Int, Int) -> (Picture -> Picture)
-focusTrans ext ( fromIntegral -> w
-               , fromIntegral -> h
-               )
+focusPic :: Ext -> (Int, Int) -> (Picture -> Picture)
+focusPic = focusTrans (uncurry Translate) (\s -> Scale s s)
+
+focusViewState :: Ext -> (Int, Int) -> (ViewState -> ViewState)
+focusViewState ext size =
+  focusTrans translate scale ext size
+  where
+    scale factor = onViewPort
+                 $ onViewPortScale (const factor)
+
+    translate pos = onViewPort
+                  $ onViewPortTranslate (const pos)
+
+focusTrans ::
+  ((Float,Float) -> a -> a) -> -- ^ xy translate transformation
+  (Float -> a -> a) ->         -- ^ Uniform scale transformation
+  Ext ->                       -- ^ Ext that depictes size of image
+  (Int, Int) ->                -- ^ Size of window
+  (a -> a)                     -- ^ Final transformation
+focusTrans translate scale ext
+           ( fromIntegral -> w
+           , fromIntegral -> h)
   | Just ((cx,cy),(ex,ey)) <- getExt ext
   , let ratio = min (w/2/ex) (h/2/ey)
-  = Scale ratio ratio
-  . Translate (-cx) (-cy)
-focusTrans _ _ = id
+  = scale ratio
+  . translate (-cx, -cy)
+focusTrans _ _ _ _ = id

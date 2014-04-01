@@ -6,12 +6,15 @@ import Network.HTTP.Conduit
 import qualified Data.ByteString.Lazy as BS
 import qualified Codec.Binary.UTF8.String as UTF8
 import Control.Concurrent
+import Control.Monad
 
 import Protocol.ProgressBar
 
 main :: IO ()
 main = do
-  let send' msg = threadDelay 1000000 >> send msg
+  let send' msg = do
+        threadDelay 1000000
+        send msg
       go 0 = return ()
       go n = do
         send' (show $ Done 1)
@@ -21,8 +24,8 @@ main = do
         go n
 
   loop 10
-  loop 10
-  loop 10
+  loop 15
+  loop 20
 
 send :: String -> IO ()
 send msg = do
@@ -31,5 +34,4 @@ send msg = do
                  , requestBody = RequestBodyLBS $ BS.pack $
                                  UTF8.encode msg
                  }
-  resp <- withManager $ httpLbs req'
-  putStrLn $ "Response:\n" ++ show resp
+  void $ withManager $ httpLbs req'
