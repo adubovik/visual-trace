@@ -17,7 +17,7 @@ main = do
         send msg
       go 0 = return ()
       go n = do
-        send' (show $ Done 1)
+        send' (show $ Done (Just "done!") 1)
         go (n-1)
       loop n = do
         send' (show $ Init n)
