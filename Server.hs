@@ -2,6 +2,7 @@
    ScopedTypeVariables
  , ViewPatterns
  , RecordWildCards
+ , TupleSections
  #-}
 
 module Server where
@@ -20,6 +21,7 @@ import Graphics.Gloss.Utils
 import Data.Monoid
 import qualified Data.Map as Map
 
+import Control.Applicative
 import Control.Concurrent.MVar
 import Control.Concurrent
 import Control.Monad
@@ -31,6 +33,7 @@ newtype ServerImage = ServerImage Image
 data World = World
  { wViewState :: ViewState
  , wImage     :: MVar ServerImage
+ , wAnnot     :: Maybe Picture -- Maybe ((Float,Float), String)
  }
 
 -- TODO: lens
@@ -66,6 +69,20 @@ render world = do
     timeEvolution
 
 eventHandler :: Event -> World -> IO World
+eventHandler e@(EventMotion mousePos) w = do
+  ServerImage image <- readMVar (wImage w)
+  let mousePos' = invertViewPort viewPort mousePos
+      viewPort = viewStateViewPort (wViewState w)
+      annotPic  = drawAnnot mousePos' <$> getAnn mousePos' image
+      drawAnnot pos msg =
+        color blue $
+        uncurry translate pos $
+        scale 0.01 0.01 $
+        text msg
+  return $ w { wAnnot = annotPic
+             , wViewState = updateViewStateWithEvent e (wViewState w)
+             }
+
 eventHandler (EventKey (Char 'r') Down _mod _pos) w = do
   ServerImage image <- readMVar (wImage w)
   let imageExt = getPictureExt $ draw image
@@ -83,8 +100,12 @@ timeEvolution _sec w = return w
 drawWorld :: World -> IO Picture
 drawWorld World{..} = do
   ServerImage image <- readMVar wImage
+  let annotPic = maybe blank id wAnnot
   return $
-    applyViewPortToPicture viewPort $ draw image
+    applyViewPortToPicture viewPort $
+      pictures [ draw image
+               , annotPic
+               ]
   where
     viewPort = viewStateViewPort wViewState
 
@@ -96,6 +117,7 @@ mkWorld = do
                      Map.fromList commandConfig <>
                      Map.fromList defaultCommandConfig
     , wImage = image
+    , wAnnot = Nothing
     }
   where
     commandConfig = [oTranslate, oRotate, oRestore]

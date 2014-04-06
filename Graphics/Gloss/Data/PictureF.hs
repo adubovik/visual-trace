@@ -12,10 +12,13 @@ import qualified Graphics.Gloss as G
 import Graphics.Gloss(Path, BitmapData, Color)
 
 import Data.Foldable(Foldable)
+import qualified Data.Foldable as Foldable
 import Data.Traversable(Traversable)
-
+import qualified Data.Traversable as Traversable
 import Data.Fix
 import Data.Monoid
+
+import Control.Monad.Reader
 
 data PictureF a
   = Blank
@@ -38,6 +41,9 @@ type Picture ann = Fix (K ann :*: PictureF)
 
 annotate :: ann -> Picture ann -> Picture ann
 annotate a = Fix . ann a .  deAnn . unFix
+
+getAnn :: (K ann :*: f) a -> ann
+getAnn (K x :*: _y) = x
 
 deAnn :: (K ann :*: f) a -> f a
 deAnn (K _x :*: y) = y

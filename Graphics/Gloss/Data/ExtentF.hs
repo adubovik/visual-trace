@@ -7,6 +7,7 @@ module Graphics.Gloss.Data.ExtentF(
  , enlargeExt
  , getExt
  , drawExt
+ , pointInExt
  ) where
 
 import Data.Monoid
@@ -96,3 +97,8 @@ enlargeExt x y = over (enlargeExtentF x y)
 getExt :: Ext -> Maybe ((Float,Float), (Float,Float))
 getExt (Ext Nothing) = Nothing
 getExt (Ext (Just ext)) = Just $ getExtentF ext
+
+pointInExt :: Ext -> (Float,Float) -> Bool
+pointInExt (Ext Nothing) _ = False
+pointInExt (Ext (Just (ExtentF yM ym xM xm))) (x,y) =
+  ym <= y && y <= yM && xm <= x && x <= xM

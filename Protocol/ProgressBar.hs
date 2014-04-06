@@ -5,7 +5,8 @@
 module Protocol.ProgressBar where
 
 import qualified Graphics.Gloss as G
-import Graphics.Gloss.Data.PictureF
+import Graphics.Gloss.Data.PictureF hiding (getAnn)
+import Graphics.Gloss.Data.PictureF.Selection
 
 -- TODO: Split into a few sub-modules, 1. render 2. logic 3. data decl ...
 
@@ -18,18 +19,24 @@ data Image = Image
   , position :: Int
   , annots   :: [Maybe String]
   }
+  deriving (Eq, Ord, Show, Read)
 
--- TODO: make type class of these 3 functions probably
+------------------------------------------------------
+-- TODO: make type class which consists of functions below
+
 mkImage :: Image
 mkImage = Image 0 0 []
 
 action :: Command -> Image -> Image
-action (Init  c) i = i { count = c
-                       , position = 0
-                       , annots = [] }
+action (Init c) i = i { count = c
+                      , position = 0
+                      , annots = [] }
 action (Done a c) i = i { position = c + position i
                         , annots = annots i ++ replicate c a
                         }
+
+getAnn :: (Float, Float) -> Image -> Maybe String
+getAnn mousePos = select mousePos . drawAnn
 
 draw :: Image -> G.Picture
 draw = toPicture . drawAnn
