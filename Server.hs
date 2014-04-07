@@ -17,6 +17,7 @@ import Graphics.Gloss.Interface.IO.Game
 import Graphics.Gloss.Data.ExtentF
 import Graphics.Gloss.Data.ViewState hiding (Command)
 import Graphics.Gloss.Utils
+import qualified Graphics.Gloss.Text as T
 
 import Data.Monoid
 import qualified Data.Map as Map
@@ -78,7 +79,7 @@ eventHandler e@(EventMotion mousePos) w = do
         color blue $
         uncurry translate pos $
         scale 0.01 0.01 $
-        text msg
+        T.textWithBackground yellow msg
   return $ w { wAnnot = annotPic
              , wViewState = updateViewStateWithEvent e (wViewState w)
              }
@@ -87,6 +88,7 @@ eventHandler (EventKey (Char 'r') Down _mod _pos) w = do
   ServerImage image <- readMVar (wImage w)
   let imageExt = getPictureExt $ draw image
       focusExt = enlargeExt 1.1 1.1 imageExt
+      -- TODO: get the actual size of the screen
       windowSize = (500,500)
 
   return $ onViewState (focusViewState focusExt windowSize) w
