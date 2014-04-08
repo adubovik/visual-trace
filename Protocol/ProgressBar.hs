@@ -35,14 +35,28 @@ action (Done a c) i = i { position = c + position i
                         , annots = annots i ++ replicate c a
                         }
 
-getAnn :: (Float, Float) -> Image -> Maybe String
-getAnn mousePos = select mousePos . drawAnn
+getAnnotation :: (Float, Float) -> Image -> Maybe String
+getAnnotation mousePos = select mousePos . drawAnn
 
 draw :: Image -> G.Picture
 draw = toPicture . drawAnn
 
 drawAnn :: Image -> Picture (Maybe String)
 drawAnn Image{..} = pictures clrRects
+  where
+    clrRects = zipWith color colors rects
+    colors = take count $
+             map (\i -> if i < position then G.green else G.red) $
+             [0..]
+    rects = take count $
+            zipWith (\i a -> translate (i*0.3) (-0.2*i) (rect a))
+            [0..] (annots ++ repeat Nothing)
+    rect a = annotate a $
+             scale 0.95 0.95 $
+             polygon [(0,0),(1,0),(1,1),(0,1)]
+
+drawAnn' :: Image -> Picture (Maybe String)
+drawAnn' Image{..} = pictures clrRects
   where
     clrRects = zipWith color colors rects
     colors = take count $

@@ -48,6 +48,9 @@ getAnn (K x :*: _y) = x
 deAnn :: (K ann :*: f) a -> f a
 deAnn (K _x :*: y) = y
 
+onAnn :: (x -> y) -> (K x :*: f) a -> (K y :*: f) a
+onAnn t (K x :*: f) = K (t x) :*: f
+
 ann :: ann -> f a -> (K ann :*: f) a
 ann a y = K a :*: y
 

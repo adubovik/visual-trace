@@ -9,13 +9,15 @@ import Graphics.Gloss hiding (text)
 import qualified Graphics.Gloss as G
 import qualified Graphics.UI.GLUT as GLUT
 
+-- Greatly depends on font (namely GLUT.Roman) that is
+-- used to render Text primitive in Gloss.
 fontHeight :: Float
 fontHeight = fromIntegral . round . unsafePerformIO $
              GLUT.fontHeight GLUT.Roman
 
 fontWidth :: String -> Float
 fontWidth str = fromIntegral . unsafePerformIO $
-                    GLUT.stringWidth GLUT.Roman str
+                GLUT.stringWidth GLUT.Roman str
 
 textWithBackground :: Color -> String -> Picture
 textWithBackground clr = textMultiLine textOneLine

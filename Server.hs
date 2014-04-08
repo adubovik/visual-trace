@@ -74,7 +74,7 @@ eventHandler e@(EventMotion mousePos) w = do
   ServerImage image <- readMVar (wImage w)
   let mousePos' = invertViewPort viewPort mousePos
       viewPort = viewStateViewPort (wViewState w)
-      annotPic  = drawAnnot mousePos' <$> getAnn mousePos' image
+      annotPic = drawAnnot mousePos' <$> getAnnotation mousePos' image
       drawAnnot pos msg =
         color blue $
         uncurry translate pos $
