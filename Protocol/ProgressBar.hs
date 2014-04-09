@@ -36,7 +36,7 @@ action (Done a c) i = i { position = c + position i
                         }
 
 getAnnotation :: (Float, Float) -> Image -> Maybe String
-getAnnotation mousePos = select mousePos . drawAnn
+getAnnotation mousePos = annotationUnderPoint mousePos . drawAnn
 
 draw :: Image -> G.Picture
 draw = toPicture . drawAnn

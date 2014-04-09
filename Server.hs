@@ -17,6 +17,8 @@ import Graphics.Gloss.Interface.IO.Game
 import Graphics.Gloss.Data.ExtentF
 import Graphics.Gloss.Data.ViewState hiding (Command)
 import Graphics.Gloss.Utils
+import Graphics.Gloss.Data.PictureF.Selection(selectWithExt)
+import Graphics.Gloss.Data.PictureF(toPicture)
 import qualified Graphics.Gloss.Text as T
 
 import Data.Monoid
@@ -35,6 +37,7 @@ data World = World
  { wViewState :: ViewState
  , wImage     :: MVar ServerImage
  , wAnnot     :: Maybe Picture -- Maybe ((Float,Float), String)
+ , wMousePos  :: Maybe Point
  }
 
 -- TODO: lens
@@ -82,6 +85,7 @@ eventHandler e@(EventMotion mousePos) w = do
         T.textWithBackground yellow msg
   return $ w { wAnnot = annotPic
              , wViewState = updateViewStateWithEvent e (wViewState w)
+             , wMousePos = Just mousePos'
              }
 
 eventHandler (EventKey (Char 'r') Down _mod _pos) w = do
@@ -103,9 +107,12 @@ drawWorld :: World -> IO Picture
 drawWorld World{..} = do
   ServerImage image <- readMVar wImage
   let annotPic = maybe blank id wAnnot
+      selectImage pic = case wMousePos of
+        Nothing -> pic
+        Just mousePos -> selectWithExt mousePos pic
   return $
     applyViewPortToPicture viewPort $
-      pictures [ draw image
+      pictures [ toPicture $ selectImage $ drawAnn image
                , annotPic
                ]
   where
@@ -120,6 +127,7 @@ mkWorld = do
                      Map.fromList defaultCommandConfig
     , wImage = image
     , wAnnot = Nothing
+    , wMousePos = Nothing
     }
   where
     commandConfig = [oTranslate, oRotate, oRestore]

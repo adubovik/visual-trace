@@ -1,35 +1,34 @@
 {-# language
    TypeOperators
  , ScopedTypeVariables
+ , ViewPatterns
  #-}
 
 module Graphics.Gloss.Data.PictureF.Selection (
-  select
+   annotationUnderPoint
+ , select
+ , selectWithExt
  ) where
 
-import Data.Foldable(Foldable)
 import qualified Data.Foldable as Foldable
-import Data.Traversable(Traversable)
-import qualified Data.Traversable as Traversable
 import Data.Fix
 import Data.Monoid
 
-import Control.Monad.Reader
-
-import Graphics.Gloss.Data.PictureF
+import Graphics.Gloss(yellow)
+import Graphics.Gloss.Data.PictureF hiding (ann)
 import Graphics.Gloss.Data.ExtentF
 import Graphics.Gloss.Utils
 import Graphics.Gloss(Point)
 
-select :: Point -> Picture (Maybe a) -> Maybe a
-select point = getFirst . select' point . toFirst
+annotationUnderPoint :: Point -> Picture (Maybe a) -> Maybe a
+annotationUnderPoint point = getFirst . annotationUnderPoint' point . toFirst
   where
     toFirst :: Picture (Maybe a) -> Picture (First a)
     toFirst = cata (Fix . onAnn First)
 
-select' :: forall ann . Monoid ann => Point -> Picture ann -> ann
-select' point = maybe mempty id . getFirst .
-                cataCtx calcAnn alg (point, mempty)
+annotationUnderPoint' :: forall ann . Monoid ann => Point -> Picture ann -> ann
+annotationUnderPoint' point = maybe mempty id . getFirst .
+                              cataCtx calcAnn alg (point, mempty)
   where
     calcAnn :: (Point, ann) -> (K ann :*: PictureF) () -> (Point, ann)
     calcAnn (pt, ann) (K primAnn :*: pic) =
@@ -48,8 +47,42 @@ select' point = maybe mempty id . getFirst .
                  | otherwise = mconcat annKids
       in  annRes
 
+selectWithExt :: forall ann. Monoid ann =>
+                 Point -> Picture ann -> Picture ann
+selectWithExt point = select point extBorder
+  where
+    extBorder :: Picture ann -> Picture ann
+    extBorder pic = let ext = getPictureExtP pic
+                    in pictures [ color yellow
+                                $ fromPicture
+                                $ drawExt
+                                $ enlargeExt 1.05 1.05
+                                $ ext
+                                , pic
+                                ]
+
+select :: forall ann . Point ->
+          (Picture ann -> Picture ann) ->
+           Picture ann -> Picture ann
+select point selectionTrans = snd . cataCtx calcPoint alg point
+  where
+    calcPoint :: Point -> (K ann :*: PictureF) () -> Point
+    calcPoint pt pic = invertTransform (deAnn pic) pt
+
+    alg :: Point -> (K ann :*: PictureF) (Bool, Picture ann) ->
+                                         (Bool, Picture ann)
+    alg pt picture@(deAnn -> pic) =
+      let isCurrentMatch = pointInAtomPicture pic pt
+          isAnyChildMatch = any fst $ Foldable.toList pic
+          newMatch = isCurrentMatch || isAnyChildMatch
+          simplePic = Fix $ fmap snd picture
+          newPic | not isAnyChildMatch && isCurrentMatch
+                 = selectionTrans simplePic
+                 | otherwise = simplePic
+      in  (newMatch, newPic)
+
 pointInAtomPicture :: PictureF a -> Point -> Bool
-pointInAtomPicture pic = pointInExt (getBasicExt pic)
+pointInAtomPicture = pointInExt . getBasicExt
 
 invertTransform :: PictureF a -> Point -> Point
 invertTransform Blank             = id
@@ -63,7 +96,7 @@ invertTransform Text{}            = id
 invertTransform Bitmap{}          = id
 invertTransform Color{}           = id
 invertTransform (Translate x y _) = \(a,b) -> (a-x,b-y)
-invertTransform (Rotate a b)      = error "invertTransform: Rotate isn't yet supported."
+invertTransform Rotate{}          = error "invertTransform: Rotate isn't yet supported."
 invertTransform (Scale x y _)     = \(a,b) -> (a/x, b/y)
 invertTransform Pictures{}        = id
 

@@ -4,6 +4,7 @@
 
 module Graphics.Gloss.Utils (
    getPictureExt
+ , getPictureExtP
  , getBasicExt
  , focusPic
  , focusViewState
@@ -15,32 +16,32 @@ import Data.Monoid
 import Graphics.Gloss.Data.ExtentF
 import Graphics.Gloss.Data.ViewState
 import Graphics.Gloss.Data.ViewState.Utils
-import Graphics.Gloss
+import Graphics.Gloss hiding (scale, translate)
 import qualified Graphics.Gloss.Data.PictureF as P
 import Data.Fix
 
 getPictureExt :: Picture -> Ext
-getPictureExt = getPictureExtP . P.fromPicture
+getPictureExt pic = getPictureExtP (P.fromPicture pic :: P.Picture ())
 
-getPictureExtP :: P.Picture () -> Ext
+getPictureExtP :: Monoid ann => P.Picture ann -> Ext
 getPictureExtP = cata (alg' . P.deAnn)
   where
     alg' p = getBasicExt p <> alg p
 
-    alg P.Blank                 = mempty
-    alg (P.Polygon path)        = mempty
-    alg (P.Line    path)        = mempty
-    alg (P.Circle   rad)        = mempty
-    alg (P.ThickCircle th rad)  = mempty
-    alg (P.Arc _ _ rad)         = mempty
-    alg (P.ThickArc _ _ rad th) = mempty
-    alg (P.Text str)            = mempty
-    alg (P.Bitmap w h _ _)      = mempty
-    alg (P.Color _ p)           = p
-    alg (P.Translate x y p)     = translateExt x y p
-    alg (P.Rotate _ p)          = p -- FIX ME!
-    alg (P.Scale x y p)         = scaleExt x y p
-    alg (P.Pictures ps)         = mconcat ps
+    alg P.Blank             = mempty
+    alg P.Polygon{}         = mempty
+    alg P.Line{}            = mempty
+    alg P.Circle{}          = mempty
+    alg P.ThickCircle{}     = mempty
+    alg P.Arc{}             = mempty
+    alg P.ThickArc{}        = mempty
+    alg P.Text{}            = mempty
+    alg P.Bitmap{}          = mempty
+    alg (P.Color _ p)       = p
+    alg (P.Translate x y p) = translateExt x y p
+    alg (P.Rotate _ p)      = p -- FIX ME!
+    alg (P.Scale x y p)     = scaleExt x y p
+    alg (P.Pictures ps)     = mconcat ps
 
 getBasicExt :: P.PictureF a -> Ext
 getBasicExt P.Blank                 = mempty

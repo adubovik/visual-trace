@@ -12,13 +12,9 @@ import qualified Graphics.Gloss as G
 import Graphics.Gloss(Path, BitmapData, Color)
 
 import Data.Foldable(Foldable)
-import qualified Data.Foldable as Foldable
 import Data.Traversable(Traversable)
-import qualified Data.Traversable as Traversable
 import Data.Fix
 import Data.Monoid
-
-import Control.Monad.Reader
 
 data PictureF a
   = Blank
