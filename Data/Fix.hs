@@ -4,18 +4,21 @@
  , RankNTypes
  , ScopedTypeVariables
  , TupleSections
+ , DeriveTraversable
+ , DeriveFoldable
  #-}
 
 module Data.Fix where
 
-import Control.Category((>>>))
 import Control.Applicative((<$>))
+import Data.Traversable
+import Data.Foldable
 
 newtype K b a = K { unK :: b }
-  deriving Functor
+  deriving (Functor, Traversable, Foldable)
 
 data (f :*: g) a = f a :*: g a
-  deriving Functor
+  deriving (Functor, Traversable, Foldable)
 
 newtype Fix f = Fix { unFix :: f (Fix f) }
 

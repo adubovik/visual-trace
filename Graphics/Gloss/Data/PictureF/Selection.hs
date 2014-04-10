@@ -11,8 +11,13 @@ module Graphics.Gloss.Data.PictureF.Selection (
  ) where
 
 import qualified Data.Foldable as Foldable
+import qualified Data.Traversable as Traversable
 import Data.Fix
 import Data.Monoid
+
+import Control.Monad.State
+import Control.Applicative
+import Control.Applicative.WrapMonadDual
 
 import Graphics.Gloss(yellow)
 import Graphics.Gloss.Data.PictureF hiding (ann)
@@ -64,22 +69,31 @@ selectWithExt point = select point extBorder
 select :: forall ann . Point ->
           (Picture ann -> Picture ann) ->
            Picture ann -> Picture ann
-select point selectionTrans = snd . cataCtx calcPoint alg point
+select point selectionTrans = flip evalState False
+                             . cataCtx calcPoint alg point
   where
     calcPoint :: Point -> (K ann :*: PictureF) () -> Point
     calcPoint pt pic = invertTransform (deAnn pic) pt
 
-    alg :: Point -> (K ann :*: PictureF) (Bool, Picture ann) ->
-                                         (Bool, Picture ann)
-    alg pt picture@(deAnn -> pic) =
-      let isCurrentMatch = pointInAtomPicture pic pt
-          isAnyChildMatch = any fst $ Foldable.toList pic
-          newMatch = isCurrentMatch || isAnyChildMatch
-          simplePic = Fix $ fmap snd picture
-          newPic | not isAnyChildMatch && isCurrentMatch
-                 = selectionTrans simplePic
-                 | otherwise = simplePic
-      in  (newMatch, newPic)
+    alg :: Point -> (K ann :*: PictureF) (State Bool (Picture ann)) ->
+                                         (State Bool (Picture ann))
+    alg pt picture@(deAnn -> pic) = do
+      -- The last primitive should be processed first, because
+      -- it's draw later, ie. it's more visible, then others.
+      picture' <- (Fix <$>) .
+                  unwrapMonadDual .
+                  Traversable.sequenceA .
+                  (WrapMonadDual <$>) $
+                  picture
+      wasMatch <- get
+      if wasMatch
+      then return picture'
+      else do
+        let isCurrentMatch = pointInAtomPicture pic pt
+            transform | isCurrentMatch = selectionTrans
+                      | otherwise = id
+        put isCurrentMatch
+        return $ transform picture'
 
 pointInAtomPicture :: PictureF a -> Point -> Bool
 pointInAtomPicture = pointInExt . getBasicExt
