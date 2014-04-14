@@ -12,11 +12,14 @@ import Data.Graph.Layout.Physics
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
+import Text.Printf
+import Debug.Trace
+
 type Graph2D na ea key = AnnGraph (na, Point) ea key
 
 forces :: [Force]
 forces = [ logSpring (2,1)
-         , quadRepel 1
+         , quadRepel 50000
          ]
 
 moveCoeff :: Float
@@ -25,7 +28,8 @@ moveCoeff = 0.1
 deltaEps :: Float
 deltaEps = 0.1
 
-applyForces :: forall na ea key. Ord key => [Force] ->
+applyForces :: forall na ea key. (Ord key, Eq key, Show key, Eq ea, Eq na, Show ea, Show na) =>
+               [Force] ->
                Graph2D na ea key -> (Graph2D na ea key, Float)
 applyForces forces g = (g', avgDelta)
   where
@@ -50,6 +54,7 @@ applyForces forces g = (g', avgDelta)
       , let force = sum $
                     [ forceVector
                     | (to, pos2) <- Map.toList nodePoss
+                    , fr /= to
                     , let areConnected = Set.member (fr,to) edges
                     , let forceVector = sum $ map (\f -> f areConnected pos1 pos2) forces
                     ]

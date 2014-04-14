@@ -109,7 +109,7 @@ line :: Monoid a => Path -> Picture a
 line 	= wrap . Line
 
 -- | A circle with the given radius.
-circle  :: Monoid a => Float  -> Picture a
+circle  :: Monoid a => Float -> Picture a
 circle 	= wrap . Circle
 
 -- | A circle with the given thickness and radius.

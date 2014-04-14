@@ -29,7 +29,8 @@ import Control.Concurrent.MVar
 import Control.Concurrent
 import Control.Monad
 
-import Protocol.ProgressBar
+-- import Protocol.ProgressBar
+import Protocol.Graph
 
 newtype ServerImage = ServerImage Image
 
@@ -101,7 +102,11 @@ eventHandler e w = return $
   w { wViewState = updateViewStateWithEvent e (wViewState w) }
 
 timeEvolution :: Float -> World -> IO World
-timeEvolution _sec w = return w
+timeEvolution secElapsed w@(wImage -> state) = do
+  modifyMVar_ state $ \(ServerImage image) -> do
+    let image' = evolution secElapsed image
+    return $ ServerImage image'
+  return w
 
 drawWorld :: World -> IO Picture
 drawWorld World{..} = do

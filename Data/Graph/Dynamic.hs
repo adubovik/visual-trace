@@ -27,6 +27,7 @@ import Data.Maybe(fromMaybe)
 data Graph key = Graph { forwEdges :: Map.Map key (Set.Set key)
                        , backEdges :: Map.Map key (Set.Set key)
                        }
+  deriving (Show, Read, Eq, Ord)
 
 type Edge key = (key, key)
 type Node key = key

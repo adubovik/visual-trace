@@ -38,8 +38,7 @@ logSpring (c1,c2) = force
 quadRepel :: Float -> Force
 quadRepel c = force
   where
-    f d = -(c / d**2)
-    force _areConnected@True  = \_ _ -> (0,0)
-    force _areConnected@False = forceViaDist f
+    f d = - (c / d**2)
+    force _areConnected = forceViaDist f
 
 

@@ -37,6 +37,7 @@ data AnnGraph na ea key = AnnGraph { graph :: Graph key
                                    , nodeAnns :: Map.Map (Node key) na
                                    , edgeAnns :: Map.Map (Edge key) ea
                                    }
+  deriving (Show, Read, Eq, Ord)
 
 getNodeAnnotations :: AnnGraph na ea key -> Map.Map (Node key) na
 getNodeAnnotations = nodeAnns

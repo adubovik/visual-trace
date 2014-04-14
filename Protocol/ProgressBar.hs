@@ -2,7 +2,17 @@
    RecordWildCards
  #-}
 
-module Protocol.ProgressBar where
+module Protocol.ProgressBar
+ ( Image
+ -- Abstract for Server
+ , Command(..)
+ , mkImage
+ , action
+ , drawAnn
+ , draw
+ , getAnnotation
+ , evolution
+ ) where
 
 import qualified Graphics.Gloss as G
 import Graphics.Gloss.Data.PictureF hiding (getAnn)
@@ -25,7 +35,10 @@ data Image = Image
 -- TODO: make type class which consists of functions below
 
 mkImage :: Image
-mkImage = Image 0 0 []
+mkImage = Image { count = 0
+                , position = 0
+                , annots = []
+                }
 
 action :: Command -> Image -> Image
 action (Init c) i = i { count = c
@@ -34,12 +47,6 @@ action (Init c) i = i { count = c
 action (Done a c) i = i { position = c + position i
                         , annots = annots i ++ replicate c a
                         }
-
-getAnnotation :: (Float, Float) -> Image -> Maybe String
-getAnnotation mousePos = annotationUnderPoint mousePos . drawAnn
-
-draw :: Image -> G.Picture
-draw = toPicture . drawAnn
 
 drawAnn' :: Image -> Picture (Maybe String)
 drawAnn' Image{..} = pictures clrRects
@@ -68,3 +75,14 @@ drawAnn Image{..} = pictures clrRects
     rect a = annotate a $
              scale 0.95 0.95 $
              polygon [(0,0),(1,0),(1,1),(0,1)]
+
+evolution :: Float -> Image -> Image
+evolution = const id
+
+-- Common for all protocols logic
+
+getAnnotation :: (Float, Float) -> Image -> Maybe String
+getAnnotation mousePos = annotationUnderPoint mousePos . drawAnn
+
+draw :: Image -> G.Picture
+draw = toPicture . drawAnn
