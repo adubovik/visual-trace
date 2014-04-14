@@ -41,8 +41,8 @@ getAnnotation mousePos = annotationUnderPoint mousePos . drawAnn
 draw :: Image -> G.Picture
 draw = toPicture . drawAnn
 
-drawAnn :: Image -> Picture (Maybe String)
-drawAnn Image{..} = pictures clrRects
+drawAnn' :: Image -> Picture (Maybe String)
+drawAnn' Image{..} = pictures clrRects
   where
     clrRects = zipWith color colors rects
     colors = take count $
@@ -55,8 +55,8 @@ drawAnn Image{..} = pictures clrRects
              scale 0.95 0.95 $
              polygon [(0,0),(1,0),(1,1),(0,1)]
 
-drawAnn' :: Image -> Picture (Maybe String)
-drawAnn' Image{..} = pictures clrRects
+drawAnn :: Image -> Picture (Maybe String)
+drawAnn Image{..} = pictures clrRects
   where
     clrRects = zipWith color colors rects
     colors = take count $
