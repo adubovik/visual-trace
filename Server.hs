@@ -12,6 +12,8 @@ import Network.Socket
 import Network.URL
 import Codec.Binary.UTF8.String
 
+import qualified Graphics.UI.GLUT as GLUT
+
 import Graphics.Gloss.Interface.IO.Game
 
 import Graphics.Gloss.Data.Ext
@@ -95,10 +97,15 @@ eventHandler (EventKey (Char 'r') Down _mod _pos) w = do
   ServerImage image <- readMVar (wImage w)
   let imageExt = getPictureExt $ drawAnn image
       focusExt = enlargeExt 1.1 1.1 imageExt
-      -- TODO: get the actual size of the screen
-      windowSize = (500,500)
 
+  windowSize <- getWindowsSize
   return $ onViewState (focusViewState focusExt windowSize) w
+  where
+    getWindowsSize :: IO (Int,Int)
+    getWindowsSize = do
+      GLUT.Size width height <- GLUT.get GLUT.windowSize
+      return (fromIntegral width, fromIntegral height)
+
 
 eventHandler e w = return $
   w { wViewState = updateViewStateWithEvent e (wViewState w) }
