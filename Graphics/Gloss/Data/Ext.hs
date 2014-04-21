@@ -3,15 +3,16 @@
  #-}
 
 module Graphics.Gloss.Data.Ext
- ( Ext
+ ( Ext(..)
+ , ExtentF(..)
  , pointExt
  , unitExt
  , scaleExt
  , translateExt
  , enlargeExt
  , getExt
- , drawExt
  , pointInExt
+ , fixSizeExt
  ) where
 
 import Data.Monoid
@@ -85,16 +86,6 @@ scaleExt x y = over (scaleExtentF x y)
 translateExt :: Float -> Float -> Ext -> Ext
 translateExt x y = over (translateExtentF x y)
 
-drawExt :: Ext -> Picture
-drawExt (Ext Nothing) = blank
-drawExt (Ext (Just (ExtentF yM ym xM xm))) =
-  Line [ (xM, yM)
-       , (xM, ym)
-       , (xm, ym)
-       , (xm, yM)
-       , (xM, yM)
-       ]
-
 enlargeExt :: Float -> Float -> Ext -> Ext
 enlargeExt x y = over (enlargeExtentF x y)
 
@@ -106,3 +97,20 @@ pointInExt :: Ext -> (Float,Float) -> Bool
 pointInExt (Ext Nothing) _ = False
 pointInExt (Ext (Just (ExtentF yM ym xM xm))) (x,y) =
   ym <= y && y <= yM && xm <= x && x <= xM
+
+fixSizeExt :: Maybe Float -> Maybe Float -> Ext -> (Picture -> Picture)
+fixSizeExt mw mh ext = case getExt ext of
+  Nothing -> id
+  Just (_,(ex,ey)) ->
+    case (mw, mh) of
+      (Nothing, Nothing) -> id
+      (Just w,  Nothing) -> let ratio = w / we
+                            in  Scale ratio ratio
+      (Nothing,  Just h) -> let ratio = h / he
+                            in  Scale ratio ratio
+      (Just w,   Just h) -> let ratioh = h / he
+                                ratiow = w / we
+                            in  Scale ratiow ratioh
+      where
+        we = ex * 2
+        he = ey * 2

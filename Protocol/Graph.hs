@@ -22,9 +22,11 @@ import qualified Data.Set as Set
 import Data.Maybe(fromMaybe)
 
 import Graphics.Gloss.Data.Point
+import Graphics.Gloss.Data.ViewPort
 import qualified Graphics.Gloss as G
 import Graphics.Gloss.Data.PictureF
 import Graphics.Gloss.Data.PictureF.Selection
+import Graphics.Gloss.Data.PictureF.Trans
 
 data Command = InsertEdge Key Key
              | InsertNode Key Point
@@ -42,8 +44,7 @@ onAnnGraph2d :: (Graph -> Graph) -> (Image -> Image)
 onAnnGraph2d f im = im { graph2d = f (graph2d im) }
 
 mkImage :: Image
-mkImage = Image { graph2d = empty
-                }
+mkImage = Image { graph2d = empty }
 
 action :: Command -> Image -> Image
 action (InsertEdge fr to) = onAnnGraph2d $ insertEdge ((fr,to),Nothing)
@@ -92,5 +93,5 @@ evolution _secElapsed = onAnnGraph2d $ fst . applyForces stdForces
 getAnnotation :: (Float, Float) -> Image -> Maybe String
 getAnnotation mousePos = annotationUnderPoint mousePos . drawAnn
 
-draw :: Image -> G.Picture
-draw = toPicture . drawAnn
+draw :: ViewPort -> Image -> G.Picture
+draw vp = toPicture vp . drawAnn

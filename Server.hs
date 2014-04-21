@@ -20,7 +20,7 @@ import Graphics.Gloss.Data.ViewState hiding (Command)
 import Graphics.Gloss.Data.ViewState.Focus
 import Graphics.Gloss.Data.Ext.Utils
 import Graphics.Gloss.Data.PictureF.Selection(selectWithExt)
-import Graphics.Gloss.Data.PictureF(toPicture)
+import Graphics.Gloss.Data.PictureF.Trans(toPicture)
 import qualified Graphics.Gloss.Text as T
 
 import Data.Monoid
@@ -119,7 +119,7 @@ drawWorld World{..} = do
         Just mousePos -> selectWithExt mousePos pic
   return $
     applyViewPortToPicture viewPort $
-      pictures [ toPicture $ selectImage $ drawAnn image
+      pictures [ toPicture viewPort $ selectImage $ drawAnn image
                , annotPic
                ]
   where

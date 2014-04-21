@@ -1,11 +1,15 @@
 {-# language
    ViewPatterns
+ , RecordWildCards
   #-}
 
 module Graphics.Gloss.Data.Ext.Utils (
    getPictureExt
+ , getPictureExt2
  , getAtomExt
  , ext2Alg
+ , drawExt2
+ , drawExt
  ) where
 
 import Data.Monoid
@@ -15,6 +19,28 @@ import Graphics.Gloss.Data.Ext
 import Graphics.Gloss.Data.Ext2
 import Graphics.Gloss.Data.PictureF
 import Graphics.Gloss.Text(textWidth, textHeight)
+
+drawExt :: Ext -> Picture
+drawExt (Ext Nothing) = blank
+drawExt (Ext (Just (ExtentF yM ym xM xm))) =
+  line [ (xM, yM)
+       , (xM, ym)
+       , (xm, ym)
+       , (xm, yM)
+       , (xM, yM)
+       ]
+
+drawExt2 :: Ext2 -> Picture
+drawExt2 Ext2{..} = case height of
+  Nothing -> drawExt weakExt
+  Just h -> pictures [ drawExt weakExt
+                     , fixHeight h $
+                       drawExt strongExt
+                     ]
+  where
+    height = do
+      (_,(_,h)) <- getExt strongExt
+      return $ 2*h
 
 getPictureExt :: Picture -> Ext
 getPictureExt = flattenExt2 . getPictureExt2

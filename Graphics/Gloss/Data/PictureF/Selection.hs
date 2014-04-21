@@ -13,13 +13,11 @@ module Graphics.Gloss.Data.PictureF.Selection (
  , selectWithExt
  ) where
 
-import qualified Data.Foldable as Foldable
 import qualified Data.Traversable as Traversable
 import Data.Fix
 import Data.Monoid
 import Data.Maybe
 
-import Control.Arrow
 import Control.Monad.State
 import Control.Applicative
 import Control.Applicative.WrapMonadDual
@@ -27,11 +25,10 @@ import Control.Applicative.WrapMonadDual
 import Graphics.Gloss(yellow, Point)
 import Graphics.Gloss.Data.PictureF
 import Graphics.Gloss.Data.Ext2
-import Graphics.Gloss.Data.Ext
 import Graphics.Gloss.Data.Ext.Utils
 import Graphics.Gloss.Data.Matrix
 
-import Debug.Utils(dbgs)
+import Debug.Utils
 
 annotationUnderPoint :: Point -> Picture -> Maybe Annotation
 annotationUnderPoint _ _ = Nothing
@@ -66,12 +63,9 @@ selectWithExt :: Point -> Picture -> Picture
 selectWithExt point = select' point extBorder
   where
     extBorder :: Picture -> Picture
-    extBorder pic = let ext = getPictureExt pic
+    extBorder pic = let ext2 = dbgs ("ext2 = " ) $ getPictureExt2 pic
                     in pictures [ color yellow
-                                $ fromPicture
-                                $ drawExt
-                                $ enlargeExt 1.05 1.05
-                                $ ext
+                                $ drawExt2 ext2
                                 , pic
                                 ]
 
@@ -126,7 +120,8 @@ select' point selectionTrans pic = pic4
                 ext <- selExt oldState
                 mat <- selMatrix oldState
                 let localPoint = applyMatrix (invertMatrix mat) point
-                    isIn = pointInExt2 ext point localPoint
+                    globalPoint = applyMatrix (zeroScale $ invertMatrix mat) point
+                    isIn = pointInExt2 ext globalPoint localPoint
                 return isIn
           in oldState { selInExt = inExt }
 

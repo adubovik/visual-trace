@@ -14,8 +14,6 @@ module Graphics.Gloss.Data.PictureF
  , PictureA
  , GroupId
  , Annotation
- , fromPicture
- , toPicture
 
  -- Smart constructors
  , blank
@@ -42,7 +40,6 @@ module Graphics.Gloss.Data.PictureF
  , getMatrix
  ) where
 
-import qualified Graphics.Gloss as G
 import Graphics.Gloss(Path, BitmapData, Color)
 import Graphics.Gloss.Data.Matrix
 
@@ -79,60 +76,12 @@ data PictureF a
 type PictureA a = Fix a PictureF
 type Picture    = PictureA ()
 
-toPicture :: Picture -> G.Picture
-toPicture = cataCtx iterateMatrix alg identityMatrix
-  where
-    identityMatrix :: Matrix
-    identityMatrix = mempty
-
-    iterateMatrix :: Matrix -> PictureF () -> Matrix
-    iterateMatrix m pic = m <> getMatrix pic
-
-    alg :: Matrix -> PictureF G.Picture -> G.Picture
-    alg _m pic = case pic of
-      Blank                -> G.Blank
-      Polygon p            -> G.Polygon p
-      Line p               -> G.Line p
-      Circle a             -> G.Circle a
-      ThickCircle a b      -> G.ThickCircle a b
-      Arc a b c            -> G.Arc a b c
-      ThickArc a b c d     -> G.ThickArc a b c d
-      Text s               -> G.Text s
-      Bitmap a b c d       -> G.Bitmap a b c d
-      Color c a            -> G.Color c a
-      Translate a b c      -> G.Translate a b c
-      Rotate a b           -> G.Rotate a b
-      Scale a b c          -> G.Scale a b c
-      Pictures p           -> G.Pictures p
-      FixedSize _mw _mh p  -> p -- let ext = getPictureExt p
-      Group _ p            -> p
-      Annotate _ p         -> p
-
 getMatrix :: PictureF a -> Matrix
 getMatrix pic = case pic of
   Translate x y _ -> identityTranslate (x,y)
   Scale x y _     -> identityScale (x,y)
   Rotate{}        -> error "getMatrix: Rotate isn't yet supported."
   _               -> mempty
-
-fromPicture :: G.Picture -> Picture
-fromPicture = ana coalg
-  where
-    coalg pic = case pic of
-      G.Blank            -> Blank
-      G.Polygon p        -> Polygon p
-      G.Line p           -> Line p
-      G.Circle a         -> Circle a
-      G.ThickCircle a b  -> ThickCircle a b
-      G.Arc a b c        -> Arc a b c
-      G.ThickArc a b c d -> ThickArc a b c d
-      G.Text s           -> Text s
-      G.Bitmap a b c d   -> Bitmap a b c d
-      G.Color c a        -> Color c a
-      G.Translate a b c  -> Translate a b c
-      G.Rotate a b       -> Rotate a b
-      G.Scale a b c      -> Scale a b c
-      G.Pictures p       -> Pictures p
 
 wrap :: PictureF Picture -> Picture
 wrap = Fix . ((),)

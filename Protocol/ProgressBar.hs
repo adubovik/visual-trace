@@ -15,8 +15,10 @@ module Protocol.ProgressBar
  ) where
 
 import qualified Graphics.Gloss as G
-import Graphics.Gloss.Data.PictureF hiding (getAnn)
+import Graphics.Gloss.Data.ViewPort
+import Graphics.Gloss.Data.PictureF
 import Graphics.Gloss.Data.PictureF.Selection
+import Graphics.Gloss.Data.PictureF.Trans
 
 -- TODO: Split into a few sub-modules, 1. render 2. logic 3. data decl ...
 
@@ -48,7 +50,7 @@ action (Done a c) i = i { position = c + position i
                         , annots = annots i ++ replicate c a
                         }
 
-drawAnn' :: Image -> Picture (Maybe String)
+drawAnn' :: Image -> Picture
 drawAnn' Image{..} = pictures clrRects
   where
     clrRects = zipWith color colors rects
@@ -58,11 +60,11 @@ drawAnn' Image{..} = pictures clrRects
     rects = take count $
             zipWith (\i a -> translate (i*0.3) (-0.2*i) (rect a))
             [0..] (annots ++ repeat Nothing)
-    rect a = annotate a $
+    rect a = maybe id annotate a $
              scale 0.95 0.95 $
              polygon [(0,0),(1,0),(1,1),(0,1)]
 
-drawAnn :: Image -> Picture (Maybe String)
+drawAnn :: Image -> Picture
 drawAnn Image{..} = pictures clrRects
   where
     clrRects = zipWith color colors rects
@@ -72,7 +74,7 @@ drawAnn Image{..} = pictures clrRects
     rects = take count $
             zipWith (\i a -> translate (fromIntegral i) 0.0 (rect a))
             [(0::Integer)..] (annots ++ repeat Nothing)
-    rect a = annotate a $
+    rect a = maybe id annotate a $
              scale 0.95 0.95 $
              polygon [(0,0),(1,0),(1,1),(0,1)]
 
@@ -84,5 +86,5 @@ evolution = const id
 getAnnotation :: (Float, Float) -> Image -> Maybe String
 getAnnotation mousePos = annotationUnderPoint mousePos . drawAnn
 
-draw :: Image -> G.Picture
-draw = toPicture . drawAnn
+draw :: ViewPort -> Image -> G.Picture
+draw vp = toPicture vp . drawAnn

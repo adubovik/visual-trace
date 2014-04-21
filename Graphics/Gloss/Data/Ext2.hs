@@ -3,7 +3,7 @@
  #-}
 
 module Graphics.Gloss.Data.Ext2
- ( Ext2
+ ( Ext2(..)
  , Ext
  , translateExt2
  , scaleExt2
@@ -37,7 +37,9 @@ onWeakExt :: (Ext -> Ext) -> Ext2 -> Ext2
 onWeakExt f e@Ext2{..} = e { weakExt = f weakExt }
 
 translateExt2 :: Float -> Float -> Ext2 -> Ext2
-translateExt2 x y = onWeakExt (translateExt x y)
+translateExt2 x y Ext2{..}= Ext2 { strongExt = translateExt x y strongExt
+                                 , weakExt = translateExt x y weakExt
+                                 }
 
 scaleExt2 :: Float -> Float -> Ext2 -> Ext2
 scaleExt2 x y = onWeakExt (scaleExt x y)
