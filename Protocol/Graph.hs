@@ -79,10 +79,12 @@ drawAnn Image{..} = pictures $ edgePics ++ nodePics
                                uncurry translate pos $
                                annotate (show node) $
                                group node $
+                               pictures [ translate 0 20.0 (circle 5.0) ,
                                fixWidth 20 $
                                pictures $
                                [ circle 20.0
                                , circle 10.0
+                               ]
                                ]
 
 evolution :: Float -> Image -> Image

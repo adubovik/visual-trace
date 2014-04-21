@@ -6,7 +6,7 @@
  #-}
 
 module Graphics.Gloss.Data.Matrix
- ( Matrix
+ ( Matrix(..)
  , identityScale
  , identityTranslate
  , applyMatrix
@@ -14,6 +14,7 @@ module Graphics.Gloss.Data.Matrix
  , invertMatrix
  , viewPortToMatrix
  , zeroScale
+ , zeroTranslate
  ) where
 
 import Graphics.Gloss.Data.Point(Point)
@@ -64,6 +65,9 @@ invertTranslate (x,y) = (-x,-y)
 
 zeroScale :: Matrix -> Matrix
 zeroScale ext = ext { mScale = mScale identityMatrix }
+
+zeroTranslate :: Matrix -> Matrix
+zeroTranslate ext = ext { mTranslate = mTranslate identityMatrix }
 
 -- Associative operator
 composeMatrices :: Matrix -> Matrix -> Matrix

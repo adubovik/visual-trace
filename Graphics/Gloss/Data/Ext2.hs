@@ -11,6 +11,7 @@ module Graphics.Gloss.Data.Ext2
  , flattenExt2
  , mkWeakExt
  , pointInExt2
+ , enlargeStrongExt
  ) where
 
 import Data.Monoid
@@ -32,6 +33,11 @@ instance Monoid Ext2 where
   mappend e1 e2 = Ext2 { strongExt = strongExt e1 <> strongExt e2
                        , weakExt = weakExt e1 <> weakExt e2
                        }
+
+enlargeStrongExt :: Float -> Ext2 -> Ext2
+enlargeStrongExt f ext = ext { strongExt =
+                                 enlargeExt f f (strongExt ext)
+                             }
 
 onWeakExt :: (Ext -> Ext) -> Ext2 -> Ext2
 onWeakExt f e@Ext2{..} = e { weakExt = f weakExt }

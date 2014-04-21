@@ -4,6 +4,7 @@
  , TypeOperators
  , ScopedTypeVariables
  , Rank2Types
+ , RecordWildCards
  #-}
 
 module Graphics.Gloss.Data.PictureF.Selection (
@@ -23,12 +24,13 @@ import Control.Applicative
 import Control.Applicative.WrapMonadDual
 
 import Graphics.Gloss(yellow, Point)
+import Graphics.Gloss.Data.ViewPort
 import Graphics.Gloss.Data.PictureF
 import Graphics.Gloss.Data.Ext2
 import Graphics.Gloss.Data.Ext.Utils
 import Graphics.Gloss.Data.Matrix
 
-import Debug.Utils
+import Text.Printf
 
 annotationUnderPoint :: Point -> Picture -> Maybe Annotation
 annotationUnderPoint _ _ = Nothing
@@ -59,11 +61,11 @@ annotationUnderPoint _ _ = Nothing
 --                  | otherwise = mconcat annKids
 --       in  annRes
 
-selectWithExt :: Point -> Picture -> Picture
-selectWithExt point = select' point extBorder
+selectWithExt :: ViewPort -> Point -> Picture -> Picture
+selectWithExt viewPort point = select' viewPort point extBorder
   where
     extBorder :: Picture -> Picture
-    extBorder pic = let ext2 = dbgs ("ext2 = " ) $ getPictureExt2 pic
+    extBorder pic = let ext2 = getPictureExt2 pic
                     in pictures [ color yellow
                                 $ drawExt2 ext2
                                 , pic
@@ -73,7 +75,12 @@ data SState = SState { selExt    :: Maybe Ext2
                      , selMatrix :: Maybe Matrix
                      , selInExt  :: Maybe Bool
                      }
-  deriving Show
+
+instance Show SState where
+  show SState{..} = printf "\n(%s,%s,%s)\n"
+                    (maybe "-" show selExt)
+                    (maybe "-" show selMatrix)
+                    (maybe "-" show selInExt)
 
 initSState :: SState
 initSState = SState { selExt    = Nothing
@@ -81,8 +88,8 @@ initSState = SState { selExt    = Nothing
                     , selInExt  = Nothing
                     }
 
-select' :: Point -> (Picture -> Picture) -> (Picture -> Picture)
-select' point selectionTrans pic = pic4
+select' :: ViewPort -> Point -> (Picture -> Picture) -> (Picture -> Picture)
+select' (viewPortToMatrix -> viewPortMatrix) point selectionTrans pic = pic4
   where
     pic0 :: PictureA SState
     pic0 = annotateCata (const initSState) pic
@@ -118,10 +125,14 @@ select' point selectionTrans pic = pic4
         inPicAlg (oldState, _pic) =
           let inExt = do
                 ext <- selExt oldState
+                -- FIXME: dirty hack
+                let ext' = enlargeStrongExt (recip . fst $ mScale viewPortMatrix) ext
                 mat <- selMatrix oldState
-                let localPoint = applyMatrix (invertMatrix mat) point
-                    globalPoint = applyMatrix (zeroScale $ invertMatrix mat) point
-                    isIn = pointInExt2 ext globalPoint localPoint
+                let localPoint = applyMatrix (invertMatrix mat) $
+                                 point
+                    globalPoint = applyMatrix (zeroScale (invertMatrix mat)) $
+                                  point
+                    isIn = pointInExt2 ext' globalPoint localPoint
                 return isIn
           in oldState { selInExt = inExt }
 

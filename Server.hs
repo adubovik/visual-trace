@@ -78,9 +78,9 @@ render world = do
 eventHandler :: Event -> World -> IO World
 eventHandler e@(EventMotion mousePos) w = do
   ServerImage image <- readMVar (wImage w)
-  let mousePos' = invertViewPort viewPort mousePos
+  let invMousePos = invertViewPort viewPort mousePos
       viewPort = viewStateViewPort (wViewState w)
-      annotPic = drawAnnot mousePos' <$> getAnnotation mousePos' image
+      annotPic = drawAnnot invMousePos <$> getAnnotation invMousePos image
       drawAnnot pos msg =
         color blue $
         uncurry translate pos $
@@ -88,7 +88,7 @@ eventHandler e@(EventMotion mousePos) w = do
         T.textWithBackground yellow msg
   return $ w { wAnnot = annotPic
              , wViewState = updateViewStateWithEvent e (wViewState w)
-             , wMousePos = Just mousePos'
+             , wMousePos = Just invMousePos
              }
 
 eventHandler (EventKey (Char 'r') Down _mod _pos) w = do
@@ -116,7 +116,7 @@ drawWorld World{..} = do
   let annotPic = maybe blank id wAnnot
       selectImage pic = case wMousePos of
         Nothing -> pic
-        Just mousePos -> selectWithExt mousePos pic
+        Just mousePos -> selectWithExt viewPort mousePos pic
   return $
     applyViewPortToPicture viewPort $
       pictures [ toPicture viewPort $ selectImage $ drawAnn image
