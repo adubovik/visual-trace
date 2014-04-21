@@ -31,6 +31,13 @@ deriving instance (Show t, Show (f (Fix t f))) => Show (Fix t f)
 cata :: Functor f => (f a -> a) -> Fix x f -> a
 cata alg = alg . fmap (cata alg) . snd . unFix
 
+cataWithAnnotation :: Functor f =>
+                      (x -> f a -> a) -> Fix x f -> a
+cataWithAnnotation alg =
+  uncurry alg .
+  (id *** fmap (cataWithAnnotation alg)) .
+  unFix
+
 para :: Functor f => (f (a, Fix x f) -> a) -> Fix x f -> a
 para alg = alg . fmap (para alg &&& id) . snd . unFix
 

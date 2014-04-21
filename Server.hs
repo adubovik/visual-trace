@@ -12,13 +12,13 @@ import Network.Socket
 import Network.URL
 import Codec.Binary.UTF8.String
 
-import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Game
 
 import Graphics.Gloss.Data.Ext
 import Graphics.Gloss.Data.ViewState hiding (Command)
 import Graphics.Gloss.Data.ViewState.Focus
 import Graphics.Gloss.Data.Ext.Utils
+import qualified Graphics.Gloss.Data.PictureF as PF
 import Graphics.Gloss.Data.PictureF.Selection(selectWithExt)
 import Graphics.Gloss.Data.PictureF.Trans(toPicture)
 import qualified Graphics.Gloss.Text as T
@@ -39,7 +39,7 @@ newtype ServerImage = ServerImage Image
 data World = World
  { wViewState :: ViewState
  , wImage     :: MVar ServerImage
- , wAnnot     :: Maybe Picture -- Maybe ((Float,Float), String)
+ , wAnnot     :: Maybe PF.Picture
  , wMousePos  :: Maybe Point
  }
 
@@ -79,13 +79,13 @@ eventHandler :: Event -> World -> IO World
 eventHandler e@(EventMotion mousePos) w = do
   ServerImage image <- readMVar (wImage w)
   let invMousePos = invertViewPort viewPort mousePos
+      annotPos = invertViewPort viewPort $ mousePos + (15,15)
       viewPort = viewStateViewPort (wViewState w)
-      annotPic = drawAnnot invMousePos <$> getAnnotation invMousePos image
+      annotPic = drawAnnot annotPos <$> getAnnotation viewPort invMousePos image
       drawAnnot pos msg =
-        color blue $
-        uncurry translate pos $
-        scale 0.01 0.01 $
-        T.textWithBackground yellow msg
+        PF.color blue $
+        uncurry PF.translate pos $
+        T.textWithBackground (Just 30) yellow msg
   return $ w { wAnnot = annotPic
              , wViewState = updateViewStateWithEvent e (wViewState w)
              , wMousePos = Just invMousePos
@@ -113,15 +113,16 @@ timeEvolution secElapsed w@(wImage -> state) = do
 drawWorld :: World -> IO Picture
 drawWorld World{..} = do
   ServerImage image <- readMVar wImage
-  let annotPic = maybe blank id wAnnot
+  let annotPic = maybe PF.blank id wAnnot
       selectImage pic = case wMousePos of
         Nothing -> pic
         Just mousePos -> selectWithExt viewPort mousePos pic
   return $
     applyViewPortToPicture viewPort $
-      pictures [ toPicture viewPort $ selectImage $ drawAnn image
-               , annotPic
-               ]
+      toPicture viewPort $
+        PF.pictures [ selectImage $ drawAnn image
+                    , annotPic
+                    ]
   where
     viewPort = viewStateViewPort wViewState
 

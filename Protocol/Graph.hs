@@ -77,14 +77,15 @@ drawAnn Image{..} = pictures $ edgePics ++ nodePics
       where
         drawNode (node, pos) = color G.red $
                                uncurry translate pos $
-                               annotate (show node) $
+                               annotate ("Annotation\n" ++ show node) $
                                group node $
-                               pictures [ translate 0 20.0 (circle 5.0) ,
-                               fixWidth 20 $
-                               pictures $
-                               [ circle 20.0
-                               , circle 10.0
-                               ]
+                               pictures [
+                                 translate 0 20.0 (circle 5.0) ,
+                                 fixWidth 20 $
+                                 pictures $
+                                 [ circle 20.0
+                                 , circle 10.0
+                                 ]
                                ]
 
 evolution :: Float -> Image -> Image
@@ -92,8 +93,8 @@ evolution _secElapsed = onAnnGraph2d $ fst . applyForces stdForces
 
 -- Common logic for all protocols
 
-getAnnotation :: (Float, Float) -> Image -> Maybe String
-getAnnotation mousePos = annotationUnderPoint mousePos . drawAnn
+getAnnotation :: ViewPort -> (Float, Float) -> Image -> Maybe String
+getAnnotation viewPort mousePos = annotationUnderPoint viewPort mousePos . drawAnn
 
 draw :: ViewPort -> Image -> G.Picture
 draw vp = toPicture vp . drawAnn

@@ -8,8 +8,11 @@ module Graphics.Gloss.Text (
 
 import System.IO.Unsafe
 
-import Graphics.Gloss hiding (text)
-import qualified Graphics.Gloss as G
+import Control.Arrow
+
+import Graphics.Gloss(Color)
+import Graphics.Gloss.Data.PictureF hiding (text)
+import qualified Graphics.Gloss.Data.PictureF as PF
 import qualified Graphics.UI.GLUT as GLUT
 
 -- Greatly depends on font (namely GLUT.Roman) that is
@@ -27,28 +30,32 @@ textWidth :: String -> Float
 textWidth str = fromIntegral . unsafePerformIO $
                 GLUT.stringWidth GLUT.Roman str
 
-textWithBackground :: Color -> String -> Picture
-textWithBackground clr = textMultiLine textOneLine
+textWithBackground :: Maybe Float -> Color -> String -> Picture
+textWithBackground lineHeight clr str = let (len, pic) = textMultiLine textOneLine str
+                                        in  fxHeight len lineHeight pic
   where
-    textOneLine str =
+    fxHeight _Lines Nothing  = id
+    fxHeight nLines (Just h) = fixHeight (fromIntegral nLines * h)
+
+    textOneLine msg =
       pictures [ color clr $
                    polygon [ (0,0)
                            , (width,0)
                            , (width,height)
                            , (0,height)
                            ]
-               , G.text str
+               , PF.text msg
                ]
       where
         width  = textWidth str
         height = textHeight str
 
 text :: String -> Picture
-text = textMultiLine G.text
+text = snd . textMultiLine PF.text
 
-textMultiLine :: (String -> Picture) -> String -> Picture
+textMultiLine :: (String -> Picture) -> String -> (Int, Picture)
 textMultiLine textOneLine =
-  pictures . zipWith textWithOffset [0..] . lines
+  (length &&& (pictures . zipWith textWithOffset [0..])) . lines
   where
     textWithOffset idx str =
       translate 0.0 (-idx*fontHeight) $ textOneLine str

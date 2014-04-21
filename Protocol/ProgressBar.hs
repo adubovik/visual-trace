@@ -50,8 +50,8 @@ action (Done a c) i = i { position = c + position i
                         , annots = annots i ++ replicate c a
                         }
 
-drawAnn' :: Image -> Picture
-drawAnn' Image{..} = pictures clrRects
+_drawAnn' :: Image -> Picture
+_drawAnn' Image{..} = pictures clrRects
   where
     clrRects = zipWith color colors rects
     colors = take count $
@@ -83,8 +83,8 @@ evolution = const id
 
 -- Common logic for all protocols
 
-getAnnotation :: (Float, Float) -> Image -> Maybe String
-getAnnotation mousePos = annotationUnderPoint mousePos . drawAnn
+getAnnotation :: ViewPort -> (Float, Float) -> Image -> Maybe String
+getAnnotation viewPort mousePos = annotationUnderPoint viewPort mousePos . drawAnn
 
 draw :: ViewPort -> Image -> G.Picture
 draw vp = toPicture vp . drawAnn

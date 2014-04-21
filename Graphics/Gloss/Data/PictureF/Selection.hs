@@ -10,10 +10,10 @@
 module Graphics.Gloss.Data.PictureF.Selection (
    annotationUnderPoint
  , select
- , select'
  , selectWithExt
  ) where
 
+import qualified Data.Foldable as Foldable
 import qualified Data.Traversable as Traversable
 import Data.Fix
 import Data.Monoid
@@ -32,8 +32,64 @@ import Graphics.Gloss.Data.Matrix
 
 import Text.Printf
 
-annotationUnderPoint :: Point -> Picture -> Maybe Annotation
-annotationUnderPoint _ _ = Nothing
+annotationUnderPoint :: ViewPort -> Point  -> Picture -> Maybe Annotation
+annotationUnderPoint (viewPortToMatrix -> viewPortMatrix) point pic = pic4
+  where
+    pic0 :: PictureA SState
+    pic0 = annotateCata (const initSState) pic
+
+    pic1 :: PictureA SState
+    pic1 = annotateCata extAlg pic0
+      where
+        extAlg :: (SState, PictureF SState) -> SState
+        extAlg (oldState, picture) =
+          let newExt = ext2Alg <$> Traversable.traverse selExt picture
+          in  oldState { selExt = newExt }
+
+    pic2 :: PictureA SState
+    pic2 = annotateAna matAlg ( (fst $ unFix pic1) { selMatrix = Just mempty }
+                              , pic1
+                              )
+      where
+        matAlg :: (SState, (SState, PictureF (        PictureA SState))) ->
+                                    PictureF (SState, PictureA SState)
+        matAlg (currState,(_oldState,picture)) =
+          let newMat = do
+                currMat <- selMatrix currState
+                return $ currMat <> getMatrix picture
+              amendMat p = let (st,_p') = unFix p
+                               st' = st { selMatrix = newMat }
+                           in  (st', p)
+          in  fmap amendMat picture
+
+    pic3 :: PictureA SState
+    pic3 = annotateCata inPicAlg pic2
+      where
+        inPicAlg :: (SState, PictureF SState) -> SState
+        inPicAlg (oldState, _pic) =
+          let inExt = do
+                ext <- selExt oldState
+                -- FIXME: dirty hack
+                let ext' = enlargeStrongExt (recip . fst $ mScale viewPortMatrix) ext
+                mat <- selMatrix oldState
+                let localPoint = applyMatrix (invertMatrix mat) $
+                                 point
+                    globalPoint = applyMatrix (zeroScale (invertMatrix mat)) $
+                                  point
+                    isIn = pointInExt2 ext' globalPoint localPoint
+                return isIn
+          in oldState { selInExt = inExt }
+
+    pic4 :: Maybe Annotation
+    pic4 = cataWithAnnotation getAnnAlg pic3
+      where
+        getAnnAlg :: SState -> PictureF (Maybe Annotation) -> Maybe Annotation
+        getAnnAlg currState picture =
+          case selInExt currState of
+            Just True -> case picture of
+              Annotate ann _ -> Just ann
+              _ -> getLast $ Foldable.foldMap Last picture
+            _ -> Nothing
 
 -- annotationUnderPoint point = getFirst . annotationUnderPoint' point . toFirst
 --   where
@@ -62,7 +118,7 @@ annotationUnderPoint _ _ = Nothing
 --       in  annRes
 
 selectWithExt :: ViewPort -> Point -> Picture -> Picture
-selectWithExt viewPort point = select' viewPort point extBorder
+selectWithExt viewPort point = select viewPort point extBorder
   where
     extBorder :: Picture -> Picture
     extBorder pic = let ext2 = getPictureExt2 pic
@@ -88,8 +144,8 @@ initSState = SState { selExt    = Nothing
                     , selInExt  = Nothing
                     }
 
-select' :: ViewPort -> Point -> (Picture -> Picture) -> (Picture -> Picture)
-select' (viewPortToMatrix -> viewPortMatrix) point selectionTrans pic = pic4
+select :: ViewPort -> Point -> (Picture -> Picture) -> (Picture -> Picture)
+select (viewPortToMatrix -> viewPortMatrix) point selectionTrans pic = pic4
   where
     pic0 :: PictureA SState
     pic0 = annotateCata (const initSState) pic
@@ -184,56 +240,18 @@ select' (viewPortToMatrix -> viewPortMatrix) point selectionTrans pic = pic4
         deAnn :: PictureA a -> PictureA ()
         deAnn = annotateCata (const ())
 
-split :: Functor f => f (a,b) -> (f a, f b)
-split f = (fst <$> f, snd <$> f)
+    split :: Functor f => f (a,b) -> (f a, f b)
+    split f = (fst <$> f, snd <$> f)
 
--- Doesn't consider Group primitive.
-select :: Point -> (Picture -> Picture) -> (Picture -> Picture)
-select point selectionTrans = flip evalState False
-                            . snd
-                            . cataCtx calcPoint alg point
-  where
-    calcPoint :: Point -> PictureF () -> Point
-    calcPoint pt pic = invertTransform pic pt
-
-
-    alg :: Point -> PictureF (Ext2, State Bool Picture) ->
-                             (Ext2, State Bool Picture)
-    alg pt (split -> (picExt, pic)) =
-      let picExt' = ext2Alg picExt in (picExt',) $ do
-      -- The last primitive should be processed first, because
-      -- it's drawn later, ie. it's more visible, then others.
-      picture' <- (Fix . ((),) <$>) .
-                  unwrapMonadDual .
-                  Traversable.sequenceA .
-                  (WrapMonadDual <$>) $
-                  pic
-      wasMatch <- get
-      if wasMatch
-      then return picture'
-      else do
-        let isMatch = isSelectablePic pic &&
-                      pointInExt2 picExt' point pt
-            transform | isMatch   = selectionTrans
-                      | otherwise = id
-        put isMatch
-        return $ transform picture'
-
-    invertTransform :: PictureF a -> Point -> Point
-    invertTransform (Translate x y _) = \(a,b) -> (a-x, b-y)
-    invertTransform (Scale x y _)     = \(a,b) -> (a/x, b/y)
-    invertTransform Rotate{}          = error "invertTransform: Rotate isn't yet supported."
-    invertTransform _                 = id
-
-isSelectablePic :: PictureF a -> Bool
-isSelectablePic Blank         = True
-isSelectablePic Polygon{}     = True
-isSelectablePic Line{}        = True
-isSelectablePic Circle{}      = True
-isSelectablePic Arc{}         = True
-isSelectablePic ThickCircle{} = True
-isSelectablePic ThickArc{}    = True
-isSelectablePic Text{}        = True
-isSelectablePic Bitmap{}      = True
-isSelectablePic Group{}       = True
-isSelectablePic _             = False
+    isSelectablePic :: PictureF a -> Bool
+    isSelectablePic Blank         = True
+    isSelectablePic Polygon{}     = True
+    isSelectablePic Line{}        = True
+    isSelectablePic Circle{}      = True
+    isSelectablePic Arc{}         = True
+    isSelectablePic ThickCircle{} = True
+    isSelectablePic ThickArc{}    = True
+    isSelectablePic Text{}        = True
+    isSelectablePic Bitmap{}      = True
+    isSelectablePic Group{}       = True
+    isSelectablePic _             = False
