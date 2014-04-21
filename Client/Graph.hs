@@ -54,7 +54,8 @@ main = do
       m = 50
       initGr = (Set.fromList [0..n-1], Set.empty)
 
-      go gr 0 = return ()
+      go :: (Set.Set Int, Set.Set Int) -> Int -> IO ()
+      go _ 0 = return ()
       go gr cnt = do
         threadDelay 1000000
         (gr', command) <- genRndCommand gr

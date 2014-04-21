@@ -1,6 +1,9 @@
 module Graphics.Gloss.Text (
    text
  , textWithBackground
+
+ , textHeight
+ , textWidth
  ) where
 
 import System.IO.Unsafe
@@ -12,11 +15,16 @@ import qualified Graphics.UI.GLUT as GLUT
 -- Greatly depends on font (namely GLUT.Roman) that is
 -- used to render Text primitive in Gloss.
 fontHeight :: Float
-fontHeight = fromIntegral . round . unsafePerformIO $
+fontHeight = fromIntegral .
+             (round :: GLUT.GLfloat -> Integer) .
+             unsafePerformIO $
              GLUT.fontHeight GLUT.Roman
 
-fontWidth :: String -> Float
-fontWidth str = fromIntegral . unsafePerformIO $
+textHeight :: String -> Float
+textHeight = const fontHeight
+
+textWidth :: String -> Float
+textWidth str = fromIntegral . unsafePerformIO $
                 GLUT.stringWidth GLUT.Roman str
 
 textWithBackground :: Color -> String -> Picture
@@ -32,8 +40,8 @@ textWithBackground clr = textMultiLine textOneLine
                , G.text str
                ]
       where
-        width = fontWidth str
-        height = fontHeight
+        width  = textWidth str
+        height = textHeight str
 
 text :: String -> Picture
 text = textMultiLine G.text

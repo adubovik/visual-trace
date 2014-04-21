@@ -12,15 +12,12 @@ import Data.Graph.Layout.Physics
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
-import Text.Printf
-import Debug.Trace
-
 type Graph2D na ea key = AnnGraph (na, Point) ea key
 
-forces :: [Force]
-forces = [ logSpring (2,1)
-         , quadRepel 50000
-         ]
+stdForces :: [Force]
+stdForces = [ logSpring (2,1)
+            , quadRepel 50000
+            ]
 
 moveCoeff :: Float
 moveCoeff = 0.1
@@ -44,8 +41,8 @@ applyForces forces g = (g', avgDelta)
             | (fr,to) <- Set.toList (getEdges g)
             ]
 
-    nodes :: Set.Set (Node key)
-    nodes = Set.fromList $ Map.keys nodePoss
+    _nodes :: Set.Set (Node key)
+    _nodes = Set.fromList $ Map.keys nodePoss
 
     nodePoss' :: Map.Map (Node key) Point
     nodePoss' = Map.fromList $

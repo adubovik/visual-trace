@@ -26,9 +26,7 @@ module Data.Graph.Dynamic.Annotated
 
 import Data.Graph.Dynamic(Graph,Edge,Node)
 import qualified Data.Graph.Dynamic as D
-import Data.Monoid
 import Data.List(foldl')
-import Data.Maybe(fromMaybe)
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set

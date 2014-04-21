@@ -1,5 +1,9 @@
-module Graphics.Gloss.Data.ExtentF(
-   Ext
+{-# language
+   RecordWildCards
+ #-}
+
+module Graphics.Gloss.Data.Ext
+ ( Ext
  , pointExt
  , unitExt
  , scaleExt

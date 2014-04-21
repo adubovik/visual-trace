@@ -1,12 +1,15 @@
 {-# language
-   TypeOperators
+   ViewPatterns
+ , TupleSections
+ , TypeOperators
  , ScopedTypeVariables
- , ViewPatterns
+ , Rank2Types
  #-}
 
 module Graphics.Gloss.Data.PictureF.Selection (
    annotationUnderPoint
  , select
+ , select'
  , selectWithExt
  ) where
 
@@ -14,50 +17,56 @@ import qualified Data.Foldable as Foldable
 import qualified Data.Traversable as Traversable
 import Data.Fix
 import Data.Monoid
+import Data.Maybe
 
+import Control.Arrow
 import Control.Monad.State
 import Control.Applicative
 import Control.Applicative.WrapMonadDual
 
-import Graphics.Gloss(yellow)
-import Graphics.Gloss.Data.PictureF hiding (ann)
-import Graphics.Gloss.Data.ExtentF
-import Graphics.Gloss.Utils
-import Graphics.Gloss(Point)
+import Graphics.Gloss(yellow, Point)
+import Graphics.Gloss.Data.PictureF
+import Graphics.Gloss.Data.Ext2
+import Graphics.Gloss.Data.Ext
+import Graphics.Gloss.Data.Ext.Utils
+import Graphics.Gloss.Data.Matrix
 
-annotationUnderPoint :: Point -> Picture (Maybe a) -> Maybe a
-annotationUnderPoint point = getFirst . annotationUnderPoint' point . toFirst
+import Debug.Utils(dbgs)
+
+annotationUnderPoint :: Point -> Picture -> Maybe Annotation
+annotationUnderPoint _ _ = Nothing
+
+-- annotationUnderPoint point = getFirst . annotationUnderPoint' point . toFirst
+--   where
+--     toFirst :: Picture (Maybe a) -> Picture (First a)
+--     toFirst = cata (Fix . onAnn First)
+
+-- annotationUnderPoint' :: forall ann . Monoid ann => Point -> Picture ann -> ann
+-- annotationUnderPoint' point = maybe mempty id . getFirst .
+--                               cataCtx calcAnn alg (point, mempty)
+--   where
+--     calcAnn :: (Point, ann) -> (K ann :*: PictureF) () -> (Point, ann)
+--     calcAnn (pt, ann) (K primAnn :*: pic) =
+--       let ann' = primAnn <> ann
+--           pt'  = invertTransform pic pt
+--       in  (pt', ann')
+
+--     alg :: (Point, ann) -> (K ann :*: PictureF) (First ann) -> First ann
+--     alg (pt, ann) (K primAnn :*: pic) =
+--       let annMatch = First . Just $ primAnn <> ann
+--           -- NB: non-trivial list will be only in the case of
+--           -- Pictures primitive. We want to grab only last match,
+--           -- because the former ones will be drawn underneath the last.
+--           annKids = reverse $ Foldable.toList pic
+--           annRes | pointInAtomPicture pic pt = annMatch
+--                  | otherwise = mconcat annKids
+--       in  annRes
+
+selectWithExt :: Point -> Picture -> Picture
+selectWithExt point = select' point extBorder
   where
-    toFirst :: Picture (Maybe a) -> Picture (First a)
-    toFirst = cata (Fix . onAnn First)
-
-annotationUnderPoint' :: forall ann . Monoid ann => Point -> Picture ann -> ann
-annotationUnderPoint' point = maybe mempty id . getFirst .
-                              cataCtx calcAnn alg (point, mempty)
-  where
-    calcAnn :: (Point, ann) -> (K ann :*: PictureF) () -> (Point, ann)
-    calcAnn (pt, ann) (K primAnn :*: pic) =
-      let ann' = primAnn <> ann
-          pt'  = invertTransform pic pt
-      in  (pt', ann')
-
-    alg :: (Point, ann) -> (K ann :*: PictureF) (First ann) -> First ann
-    alg (pt, ann) (K primAnn :*: pic) =
-      let annMatch = First . Just $ primAnn <> ann
-          -- NB: non-trivial list will be only in the case of
-          -- Pictures primitive. We want to grab only last match,
-          -- because the former ones will be drawn underneath the last.
-          annKids = reverse $ Foldable.toList pic
-          annRes | pointInAtomPicture pic pt = annMatch
-                 | otherwise = mconcat annKids
-      in  annRes
-
-selectWithExt :: forall ann. Monoid ann =>
-                 Point -> Picture ann -> Picture ann
-selectWithExt point = select point extBorder
-  where
-    extBorder :: Picture ann -> Picture ann
-    extBorder pic = let ext = getPictureExtP pic
+    extBorder :: Picture -> Picture
+    extBorder pic = let ext = getPictureExt pic
                     in pictures [ color yellow
                                 $ fromPicture
                                 $ drawExt
@@ -66,51 +75,159 @@ selectWithExt point = select point extBorder
                                 , pic
                                 ]
 
-select :: forall ann . Point ->
-          (Picture ann -> Picture ann) ->
-           Picture ann -> Picture ann
-select point selectionTrans = flip evalState False
-                             . cataCtx calcPoint alg point
-  where
-    calcPoint :: Point -> (K ann :*: PictureF) () -> Point
-    calcPoint pt pic = invertTransform (deAnn pic) pt
+data SState = SState { selExt    :: Maybe Ext2
+                     , selMatrix :: Maybe Matrix
+                     , selInExt  :: Maybe Bool
+                     }
+  deriving Show
 
-    alg :: Point -> (K ann :*: PictureF) (State Bool (Picture ann)) ->
-                                         (State Bool (Picture ann))
-    alg pt picture@(deAnn -> pic) = do
+initSState :: SState
+initSState = SState { selExt    = Nothing
+                    , selMatrix = Nothing
+                    , selInExt  = Nothing
+                    }
+
+select' :: Point -> (Picture -> Picture) -> (Picture -> Picture)
+select' point selectionTrans pic = pic4
+  where
+    pic0 :: PictureA SState
+    pic0 = annotateCata (const initSState) pic
+
+    pic1 :: PictureA SState
+    pic1 = annotateCata extAlg pic0
+      where
+        extAlg :: (SState, PictureF SState) -> SState
+        extAlg (oldState, picture) =
+          let newExt = ext2Alg <$> Traversable.traverse selExt picture
+          in  oldState { selExt = newExt }
+
+    pic2 :: PictureA SState
+    pic2 = annotateAna matAlg ( (fst $ unFix pic1) { selMatrix = Just mempty }
+                              , pic1
+                              )
+      where
+        matAlg :: (SState, (SState, PictureF (        PictureA SState))) ->
+                                    PictureF (SState, PictureA SState)
+        matAlg (currState,(_oldState,picture)) =
+          let newMat = do
+                currMat <- selMatrix currState
+                return $ currMat <> getMatrix picture
+              amendMat p = let (st,_p') = unFix p
+                               st' = st { selMatrix = newMat }
+                           in  (st', p)
+          in  fmap amendMat picture
+
+    pic3 :: PictureA SState
+    pic3 = annotateCata inPicAlg pic2
+      where
+        inPicAlg :: (SState, PictureF SState) -> SState
+        inPicAlg (oldState, _pic) =
+          let inExt = do
+                ext <- selExt oldState
+                mat <- selMatrix oldState
+                let localPoint = applyMatrix (invertMatrix mat) point
+                    isIn = pointInExt2 ext point localPoint
+                return isIn
+          in oldState { selInExt = inExt }
+
+    pic4 :: PictureA ()
+    pic4 = paraWithAnnotation transAlg pic3
+      where
+        transAlg :: SState ->
+                    PictureF (PictureA (), PictureA SState) ->
+                    PictureA ()
+        transAlg currState picture@(split -> (_newPic, oldPic)) =
+          let oldPic' = fmap deAnn oldPic in
+          Fix . ((),) $
+            case selInExt currState of
+              Just True -> if isSelectablePic oldPic'
+                           then snd . unFix .
+                                selectionTrans .
+                                Fix . ((),) $
+                                oldPic'
+                           else switchLastInExt $
+                                picture
+              _ -> oldPic'
+
+        switchLastInExt :: Traversable.Traversable f =>
+                           f (PictureA (), PictureA SState) ->
+                           f (PictureA ())
+        switchLastInExt f = flip evalState False .
+                            unwrapMonadDual .
+                            Traversable.sequenceA .
+                            (WrapMonadDual <$>) .
+                            (act <$>) $
+                            f
+          where
+            act :: (PictureA (), PictureA SState) -> State Bool (PictureA ())
+            act (newPic, oldPic) = do
+              wasMatch <- get
+              let oldPic' = deAnn oldPic
+              if wasMatch
+              then return oldPic'
+              else do
+                let inExt = fromMaybe False . selInExt . fst $
+                            unFix oldPic
+                if inExt
+                then do
+                  put True
+                  return newPic
+                else
+                  return oldPic'
+
+        deAnn :: PictureA a -> PictureA ()
+        deAnn = annotateCata (const ())
+
+split :: Functor f => f (a,b) -> (f a, f b)
+split f = (fst <$> f, snd <$> f)
+
+-- Doesn't consider Group primitive.
+select :: Point -> (Picture -> Picture) -> (Picture -> Picture)
+select point selectionTrans = flip evalState False
+                            . snd
+                            . cataCtx calcPoint alg point
+  where
+    calcPoint :: Point -> PictureF () -> Point
+    calcPoint pt pic = invertTransform pic pt
+
+
+    alg :: Point -> PictureF (Ext2, State Bool Picture) ->
+                             (Ext2, State Bool Picture)
+    alg pt (split -> (picExt, pic)) =
+      let picExt' = ext2Alg picExt in (picExt',) $ do
       -- The last primitive should be processed first, because
-      -- it's draw later, ie. it's more visible, then others.
-      picture' <- (Fix <$>) .
+      -- it's drawn later, ie. it's more visible, then others.
+      picture' <- (Fix . ((),) <$>) .
                   unwrapMonadDual .
                   Traversable.sequenceA .
                   (WrapMonadDual <$>) $
-                  picture
+                  pic
       wasMatch <- get
       if wasMatch
       then return picture'
       else do
-        let isCurrentMatch = pointInAtomPicture pic pt
-            transform | isCurrentMatch = selectionTrans
+        let isMatch = isSelectablePic pic &&
+                      pointInExt2 picExt' point pt
+            transform | isMatch   = selectionTrans
                       | otherwise = id
-        put isCurrentMatch
+        put isMatch
         return $ transform picture'
 
-pointInAtomPicture :: PictureF a -> Point -> Bool
-pointInAtomPicture = pointInExt . getBasicExt
+    invertTransform :: PictureF a -> Point -> Point
+    invertTransform (Translate x y _) = \(a,b) -> (a-x, b-y)
+    invertTransform (Scale x y _)     = \(a,b) -> (a/x, b/y)
+    invertTransform Rotate{}          = error "invertTransform: Rotate isn't yet supported."
+    invertTransform _                 = id
 
-invertTransform :: PictureF a -> Point -> Point
-invertTransform Blank             = id
-invertTransform Polygon{}         = id
-invertTransform Line{}            = id
-invertTransform Circle{}          = id
-invertTransform ThickCircle{}     = id
-invertTransform Arc{}             = id
-invertTransform ThickArc{}        = id
-invertTransform Text{}            = id
-invertTransform Bitmap{}          = id
-invertTransform Color{}           = id
-invertTransform (Translate x y _) = \(a,b) -> (a-x,b-y)
-invertTransform Rotate{}          = error "invertTransform: Rotate isn't yet supported."
-invertTransform (Scale x y _)     = \(a,b) -> (a/x, b/y)
-invertTransform Pictures{}        = id
-
+isSelectablePic :: PictureF a -> Bool
+isSelectablePic Blank         = True
+isSelectablePic Polygon{}     = True
+isSelectablePic Line{}        = True
+isSelectablePic Circle{}      = True
+isSelectablePic Arc{}         = True
+isSelectablePic ThickCircle{} = True
+isSelectablePic ThickArc{}    = True
+isSelectablePic Text{}        = True
+isSelectablePic Bitmap{}      = True
+isSelectablePic Group{}       = True
+isSelectablePic _             = False

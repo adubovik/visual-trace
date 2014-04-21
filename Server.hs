@@ -14,9 +14,11 @@ import Codec.Binary.UTF8.String
 
 import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Game
-import Graphics.Gloss.Data.ExtentF
+
+import Graphics.Gloss.Data.Ext
 import Graphics.Gloss.Data.ViewState hiding (Command)
-import Graphics.Gloss.Utils
+import Graphics.Gloss.Data.ViewState.Focus
+import Graphics.Gloss.Data.Ext.Utils
 import Graphics.Gloss.Data.PictureF.Selection(selectWithExt)
 import Graphics.Gloss.Data.PictureF(toPicture)
 import qualified Graphics.Gloss.Text as T
@@ -91,7 +93,7 @@ eventHandler e@(EventMotion mousePos) w = do
 
 eventHandler (EventKey (Char 'r') Down _mod _pos) w = do
   ServerImage image <- readMVar (wImage w)
-  let imageExt = getPictureExt $ draw image
+  let imageExt = getPictureExt $ drawAnn image
       focusExt = enlargeExt 1.1 1.1 imageExt
       -- TODO: get the actual size of the screen
       windowSize = (500,500)

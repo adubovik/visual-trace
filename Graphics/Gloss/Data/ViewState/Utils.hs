@@ -1,4 +1,8 @@
-module Graphics.Gloss.Data.ViewState.Utils where
+module Graphics.Gloss.Data.ViewState.Utils
+ ( onViewPort
+ , onViewPortScale
+ , onViewPortTranslate
+ ) where
 
 import Graphics.Gloss.Data.ViewState
 

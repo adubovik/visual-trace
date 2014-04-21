@@ -23,7 +23,7 @@ import Data.Maybe(fromMaybe)
 
 import Graphics.Gloss.Data.Point
 import qualified Graphics.Gloss as G
-import Graphics.Gloss.Data.PictureF hiding (getAnn)
+import Graphics.Gloss.Data.PictureF
 import Graphics.Gloss.Data.PictureF.Selection
 
 data Command = InsertEdge Key Key
@@ -50,10 +50,10 @@ action (InsertEdge fr to) = onAnnGraph2d $ insertEdge ((fr,to),Nothing)
 action (InsertNode node pos) =
   onAnnGraph2d $ insertNode (node, Just ((), pos))
 
-drawAnn :: Image -> Picture (Maybe String)
+drawAnn :: Image -> Picture
 drawAnn Image{..} = pictures $ edgePics ++ nodePics
   where
-    edgePics :: [Picture (Maybe String)]
+    edgePics :: [Picture]
     edgePics = map drawEdge $ Set.toList edges
       where
         findPos node = fromMaybe err $ Map.lookup node nodePoss
@@ -71,18 +71,23 @@ drawAnn Image{..} = pictures $ edgePics ++ nodePics
     nodePoss :: Map.Map (Node Key) Point
     nodePoss = Map.map snd $ getNodeAnnotations graph2d
 
-    nodePics :: [Picture (Maybe String)]
+    nodePics :: [Picture]
     nodePics = map drawNode $ Map.toList nodePoss
       where
         drawNode (node, pos) = color G.red $
                                uncurry translate pos $
-                               annotate (Just $ show node) $
-                               circle 20.0
+                               annotate (show node) $
+                               group node $
+                               fixWidth 20 $
+                               pictures $
+                               [ circle 20.0
+                               , circle 10.0
+                               ]
 
 evolution :: Float -> Image -> Image
-evolution _secElapsed = onAnnGraph2d $ fst . applyForces forces
+evolution _secElapsed = onAnnGraph2d $ fst . applyForces stdForces
 
--- Common for all protocols logic
+-- Common logic for all protocols
 
 getAnnotation :: (Float, Float) -> Image -> Maybe String
 getAnnotation mousePos = annotationUnderPoint mousePos . drawAnn

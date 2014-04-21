@@ -79,7 +79,7 @@ drawAnn Image{..} = pictures clrRects
 evolution :: Float -> Image -> Image
 evolution = const id
 
--- Common for all protocols logic
+-- Common logic for all protocols
 
 getAnnotation :: (Float, Float) -> Image -> Maybe String
 getAnnotation mousePos = annotationUnderPoint mousePos . drawAnn
