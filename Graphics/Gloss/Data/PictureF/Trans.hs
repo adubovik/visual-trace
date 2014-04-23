@@ -1,10 +1,12 @@
 {-# language
    ViewPatterns
+ , TupleSections
  #-}
 
 module Graphics.Gloss.Data.PictureF.Trans
  ( toPicture
  , fromPicture
+ , eliminateFixedSize
  ) where
 
 import Graphics.Gloss.Data.Matrix
@@ -18,14 +20,11 @@ import Graphics.Gloss.Data.Ext
 import Graphics.Gloss.Data.Ext.Utils
 
 toPicture :: ViewPort -> Picture -> G.Picture
-toPicture (viewPortToMatrix -> viewPortMatrix) =
-  cataCtx iterateMatrix alg viewPortMatrix
+toPicture viewPort =
+  cata alg . eliminateFixedSize viewPort
   where
-    iterateMatrix :: Matrix -> PictureF () -> Matrix
-    iterateMatrix m pic = m <> getMatrix pic
-
-    alg :: Matrix -> PictureF G.Picture -> G.Picture
-    alg m pic = case pic of
+    alg :: PictureF G.Picture -> G.Picture
+    alg pic = case pic of
       Blank             -> G.Blank
       Polygon p         -> G.Polygon p
       Line p            -> G.Line p
@@ -40,11 +39,23 @@ toPicture (viewPortToMatrix -> viewPortMatrix) =
       Rotate a b        -> G.Rotate a b
       Scale a b c       -> G.Scale a b c
       Pictures p        -> G.Pictures p
-      FixedSize mw mh p -> let ext  = getPictureExt $ fromPicture p --FIX ME!
-                               ext' = applyMatrixToExt m ext
-                           in  fixSizeExt mw mh ext' p
+      FixedSize _ _ _   -> error "toPicture: FixedSize primitive shouldn't appear at this stage."
       Group _ p         -> p
       Annotate _ p      -> p
+
+eliminateFixedSize :: ViewPort -> Picture -> Picture
+eliminateFixedSize (viewPortToMatrix -> viewPortMatrix) =
+  cataCtx iterateMatrix alg viewPortMatrix
+  where
+    iterateMatrix :: Matrix -> PictureF () -> Matrix
+    iterateMatrix m pic = m <> getMatrix pic
+
+    alg :: Matrix -> PictureF Picture -> Picture
+    alg m pic = case pic of
+      FixedSize mw mh p -> let ext  = getPictureExt p
+                               ext' = applyMatrixToExt m ext
+                           in  fixSizeExt mw mh ext' p
+      _ -> Fix . ((),) $ pic
 
 fromPicture :: G.Picture -> Picture
 fromPicture = ana coalg

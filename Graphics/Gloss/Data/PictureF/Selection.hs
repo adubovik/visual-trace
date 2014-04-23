@@ -26,17 +26,21 @@ import Control.Applicative.WrapMonadDual
 import Graphics.Gloss(yellow, Point)
 import Graphics.Gloss.Data.ViewPort
 import Graphics.Gloss.Data.PictureF
+import Graphics.Gloss.Data.PictureF.Trans
+import Graphics.Gloss.Data.Ext
 import Graphics.Gloss.Data.Ext2
 import Graphics.Gloss.Data.Ext.Utils
 import Graphics.Gloss.Data.Matrix
 
 import Text.Printf
 
+import Debug.Trace
+
 annotationUnderPoint :: ViewPort -> Point  -> Picture -> Maybe Annotation
-annotationUnderPoint (viewPortToMatrix -> viewPortMatrix) point pic = pic4
+annotationUnderPoint viewPort point pic = pic4
   where
     pic0 :: PictureA SState
-    pic0 = annotateCata (const initSState) pic
+    pic0 = annotateCata (const initSState) (eliminateFixedSize viewPort pic)
 
     pic1 :: PictureA SState
     pic1 = annotateCata extAlg pic0
@@ -68,15 +72,10 @@ annotationUnderPoint (viewPortToMatrix -> viewPortMatrix) point pic = pic4
         inPicAlg :: (SState, PictureF SState) -> SState
         inPicAlg (oldState, _pic) =
           let inExt = do
-                ext <- selExt oldState
-                -- FIXME: dirty hack
-                let ext' = enlargeStrongExt (recip . fst $ mScale viewPortMatrix) ext
+                Ext2{..} <- selExt oldState
                 mat <- selMatrix oldState
-                let localPoint = applyMatrix (invertMatrix mat) $
-                                 point
-                    globalPoint = applyMatrix (zeroScale (invertMatrix mat)) $
-                                  point
-                    isIn = pointInExt2 ext' globalPoint localPoint
+                let localPoint = applyMatrix (invertMatrix mat) point
+                    isIn = pointInExt weakExt localPoint
                 return isIn
           in oldState { selInExt = inExt }
 
@@ -90,32 +89,6 @@ annotationUnderPoint (viewPortToMatrix -> viewPortMatrix) point pic = pic4
               Annotate ann _ -> Just ann
               _ -> getLast $ Foldable.foldMap Last picture
             _ -> Nothing
-
--- annotationUnderPoint point = getFirst . annotationUnderPoint' point . toFirst
---   where
---     toFirst :: Picture (Maybe a) -> Picture (First a)
---     toFirst = cata (Fix . onAnn First)
-
--- annotationUnderPoint' :: forall ann . Monoid ann => Point -> Picture ann -> ann
--- annotationUnderPoint' point = maybe mempty id . getFirst .
---                               cataCtx calcAnn alg (point, mempty)
---   where
---     calcAnn :: (Point, ann) -> (K ann :*: PictureF) () -> (Point, ann)
---     calcAnn (pt, ann) (K primAnn :*: pic) =
---       let ann' = primAnn <> ann
---           pt'  = invertTransform pic pt
---       in  (pt', ann')
-
---     alg :: (Point, ann) -> (K ann :*: PictureF) (First ann) -> First ann
---     alg (pt, ann) (K primAnn :*: pic) =
---       let annMatch = First . Just $ primAnn <> ann
---           -- NB: non-trivial list will be only in the case of
---           -- Pictures primitive. We want to grab only last match,
---           -- because the former ones will be drawn underneath the last.
---           annKids = reverse $ Foldable.toList pic
---           annRes | pointInAtomPicture pic pt = annMatch
---                  | otherwise = mconcat annKids
---       in  annRes
 
 selectWithExt :: ViewPort -> Point -> Picture -> Picture
 selectWithExt viewPort point = select viewPort point extBorder
@@ -145,10 +118,10 @@ initSState = SState { selExt    = Nothing
                     }
 
 select :: ViewPort -> Point -> (Picture -> Picture) -> (Picture -> Picture)
-select (viewPortToMatrix -> viewPortMatrix) point selectionTrans pic = pic4
+select viewPort point selectionTrans pic = pic4
   where
     pic0 :: PictureA SState
-    pic0 = annotateCata (const initSState) pic
+    pic0 = annotateCata (const initSState) (eliminateFixedSize viewPort pic)
 
     pic1 :: PictureA SState
     pic1 = annotateCata extAlg pic0
@@ -180,15 +153,10 @@ select (viewPortToMatrix -> viewPortMatrix) point selectionTrans pic = pic4
         inPicAlg :: (SState, PictureF SState) -> SState
         inPicAlg (oldState, _pic) =
           let inExt = do
-                ext <- selExt oldState
-                -- FIXME: dirty hack
-                let ext' = enlargeStrongExt (recip . fst $ mScale viewPortMatrix) ext
+                Ext2{..} <- selExt oldState
                 mat <- selMatrix oldState
-                let localPoint = applyMatrix (invertMatrix mat) $
-                                 point
-                    globalPoint = applyMatrix (zeroScale (invertMatrix mat)) $
-                                  point
-                    isIn = pointInExt2 ext' globalPoint localPoint
+                let localPoint = applyMatrix (invertMatrix mat) point
+                    isIn = pointInExt weakExt localPoint
                 return isIn
           in oldState { selInExt = inExt }
 

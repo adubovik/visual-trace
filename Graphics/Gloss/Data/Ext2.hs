@@ -35,9 +35,10 @@ instance Monoid Ext2 where
                        }
 
 enlargeStrongExt :: Float -> Ext2 -> Ext2
-enlargeStrongExt f ext = ext { strongExt =
-                                 enlargeExt f f (strongExt ext)
-                             }
+enlargeStrongExt f = onStrongExt (enlargeExt f f)
+
+onStrongExt :: (Ext -> Ext) -> Ext2 -> Ext2
+onStrongExt f e@Ext2{..} = e { strongExt = f strongExt }
 
 onWeakExt :: (Ext -> Ext) -> Ext2 -> Ext2
 onWeakExt f e@Ext2{..} = e { weakExt = f weakExt }

@@ -106,7 +106,6 @@ eventHandler (EventKey (Char 'r') Down _mod _pos) w = do
       GLUT.Size width height <- GLUT.get GLUT.windowSize
       return (fromIntegral width, fromIntegral height)
 
-
 eventHandler e w = return $
   w { wViewState = updateViewStateWithEvent e (wViewState w) }
 

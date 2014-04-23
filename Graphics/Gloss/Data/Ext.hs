@@ -1,5 +1,6 @@
 {-# language
    RecordWildCards
+ , TupleSections
  #-}
 
 module Graphics.Gloss.Data.Ext
@@ -13,11 +14,15 @@ module Graphics.Gloss.Data.Ext
  , getExt
  , pointInExt
  , fixSizeExt
+ , applyMatrixToExt
  ) where
 
 import Data.Monoid
+import Data.Fix
 
 import Graphics.Gloss
+import qualified Graphics.Gloss.Data.PictureF as PF
+import Graphics.Gloss.Data.Matrix
 
 data ExtentF = ExtentF Float Float Float Float
   deriving (Show, Read, Eq, Ord)
@@ -98,19 +103,23 @@ pointInExt (Ext Nothing) _ = False
 pointInExt (Ext (Just (ExtentF yM ym xM xm))) (x,y) =
   ym <= y && y <= yM && xm <= x && x <= xM
 
-fixSizeExt :: Maybe Float -> Maybe Float -> Ext -> (Picture -> Picture)
+fixSizeExt :: Maybe Float -> Maybe Float -> Ext -> (PF.Picture -> PF.Picture)
 fixSizeExt mw mh ext = case getExt ext of
   Nothing -> id
   Just (_,(ex,ey)) ->
     case (mw, mh) of
       (Nothing, Nothing) -> id
       (Just w,  Nothing) -> let ratio = w / we
-                            in  Scale ratio ratio
+                            in  Fix . ((),) . PF.Scale ratio ratio
       (Nothing,  Just h) -> let ratio = h / he
-                            in  Scale ratio ratio
+                            in  Fix . ((),) . PF.Scale ratio ratio
       (Just w,   Just h) -> let ratioh = h / he
                                 ratiow = w / we
-                            in  Scale ratiow ratioh
+                            in  Fix . ((),) . PF.Scale ratiow ratioh
       where
         we = ex * 2
         he = ey * 2
+
+applyMatrixToExt :: Matrix -> Ext -> Ext
+applyMatrixToExt m = (uncurry scaleExt (mScale m)) .
+                     (uncurry translateExt (mTranslate m))

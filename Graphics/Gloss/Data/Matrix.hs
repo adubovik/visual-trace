@@ -10,7 +10,6 @@ module Graphics.Gloss.Data.Matrix
  , identityScale
  , identityTranslate
  , applyMatrix
- , applyMatrixToExt
  , invertMatrix
  , viewPortToMatrix
  , zeroScale
@@ -18,7 +17,6 @@ module Graphics.Gloss.Data.Matrix
  ) where
 
 import Graphics.Gloss.Data.Point(Point)
-import Graphics.Gloss.Data.Ext
 import Graphics.Gloss.Data.ViewPort
 
 import Data.Monoid
@@ -64,10 +62,10 @@ invertTranslate :: (Float,Float) -> (Float, Float)
 invertTranslate (x,y) = (-x,-y)
 
 zeroScale :: Matrix -> Matrix
-zeroScale ext = ext { mScale = mScale identityMatrix }
+zeroScale m = m { mScale = mScale identityMatrix }
 
 zeroTranslate :: Matrix -> Matrix
-zeroTranslate ext = ext { mTranslate = mTranslate identityMatrix }
+zeroTranslate m = m { mTranslate = mTranslate identityMatrix }
 
 -- Associative operator
 composeMatrices :: Matrix -> Matrix -> Matrix
@@ -79,10 +77,6 @@ composeMatrices m1 m2 = Matrix { mTranslate = mTranslate m2 +
 
 applyMatrix :: Matrix -> Point -> Point
 applyMatrix m = ((mScale m) *) . ((mTranslate m) + )
-
-applyMatrixToExt :: Matrix -> Ext -> Ext
-applyMatrixToExt m = (uncurry scaleExt (mScale m)) .
-                     (uncurry translateExt (mTranslate m))
 
 -- invertMatrix m <> m == mempty
 -- invertMatrix . invertMatrix == id
