@@ -20,7 +20,6 @@ module Graphics.Gloss.Data.Ext
 import Data.Monoid
 import Data.Fix
 
-import Graphics.Gloss
 import qualified Graphics.Gloss.Data.PictureF as PF
 import Graphics.Gloss.Data.Matrix
 

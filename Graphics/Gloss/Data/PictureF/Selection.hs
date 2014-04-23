@@ -31,18 +31,34 @@ import Graphics.Gloss.Data.Ext
 import Graphics.Gloss.Data.Ext2
 import Graphics.Gloss.Data.Ext.Utils
 import Graphics.Gloss.Data.Matrix
-
 import Text.Printf
 
-import Debug.Trace
+type PictureS = PictureA SState
 
-annotationUnderPoint :: ViewPort -> Point  -> Picture -> Maybe Annotation
-annotationUnderPoint viewPort point pic = pic4
+data SState = SState { selExt    :: Maybe Ext2
+                     , selMatrix :: Maybe Matrix
+                     , selInExt  :: Maybe Bool
+                     }
+
+instance Show SState where
+  show SState{..} = printf "\n(%s,%s,%s)\n"
+                    (maybe "-" show selExt)
+                    (maybe "-" show selMatrix)
+                    (maybe "-" show selInExt)
+
+initSState :: SState
+initSState = SState { selExt    = Nothing
+                    , selMatrix = Nothing
+                    , selInExt  = Nothing
+                    }
+
+evalSelectionInfo :: ViewPort -> Point -> Picture -> PictureS
+evalSelectionInfo viewPort point pic = pic3
   where
-    pic0 :: PictureA SState
+    pic0 :: PictureS
     pic0 = annotateCata (const initSState) (eliminateFixedSize viewPort pic)
 
-    pic1 :: PictureA SState
+    pic1 :: PictureS
     pic1 = annotateCata extAlg pic0
       where
         extAlg :: (SState, PictureF SState) -> SState
@@ -50,13 +66,13 @@ annotationUnderPoint viewPort point pic = pic4
           let newExt = ext2Alg <$> Traversable.traverse selExt picture
           in  oldState { selExt = newExt }
 
-    pic2 :: PictureA SState
+    pic2 :: PictureS
     pic2 = annotateAna matAlg ( (fst $ unFix pic1) { selMatrix = Just mempty }
                               , pic1
                               )
       where
-        matAlg :: (SState, (SState, PictureF (        PictureA SState))) ->
-                                    PictureF (SState, PictureA SState)
+        matAlg :: (SState, (SState, PictureF (        PictureS))) ->
+                                    PictureF (SState, PictureS)
         matAlg (currState,(_oldState,picture)) =
           let newMat = do
                 currMat <- selMatrix currState
@@ -66,7 +82,7 @@ annotationUnderPoint viewPort point pic = pic4
                            in  (st', p)
           in  fmap amendMat picture
 
-    pic3 :: PictureA SState
+    pic3 :: PictureS
     pic3 = annotateCata inPicAlg pic2
       where
         inPicAlg :: (SState, PictureF SState) -> SState
@@ -79,8 +95,12 @@ annotationUnderPoint viewPort point pic = pic4
                 return isIn
           in oldState { selInExt = inExt }
 
-    pic4 :: Maybe Annotation
-    pic4 = cataWithAnnotation getAnnAlg pic3
+
+annotationUnderPoint :: ViewPort -> Point  -> Picture -> Maybe Annotation
+annotationUnderPoint viewPort point pic = topAnnotation
+  where
+    topAnnotation :: Maybe Annotation
+    topAnnotation = cataWithAnnotation getAnnAlg $ evalSelectionInfo viewPort point pic
       where
         getAnnAlg :: SState -> PictureF (Maybe Annotation) -> Maybe Annotation
         getAnnAlg currState picture =
@@ -100,71 +120,15 @@ selectWithExt viewPort point = select viewPort point extBorder
                                 , pic
                                 ]
 
-data SState = SState { selExt    :: Maybe Ext2
-                     , selMatrix :: Maybe Matrix
-                     , selInExt  :: Maybe Bool
-                     }
-
-instance Show SState where
-  show SState{..} = printf "\n(%s,%s,%s)\n"
-                    (maybe "-" show selExt)
-                    (maybe "-" show selMatrix)
-                    (maybe "-" show selInExt)
-
-initSState :: SState
-initSState = SState { selExt    = Nothing
-                    , selMatrix = Nothing
-                    , selInExt  = Nothing
-                    }
-
 select :: ViewPort -> Point -> (Picture -> Picture) -> (Picture -> Picture)
-select viewPort point selectionTrans pic = pic4
+select viewPort point selectionTrans pic = pic'
   where
-    pic0 :: PictureA SState
-    pic0 = annotateCata (const initSState) (eliminateFixedSize viewPort pic)
-
-    pic1 :: PictureA SState
-    pic1 = annotateCata extAlg pic0
-      where
-        extAlg :: (SState, PictureF SState) -> SState
-        extAlg (oldState, picture) =
-          let newExt = ext2Alg <$> Traversable.traverse selExt picture
-          in  oldState { selExt = newExt }
-
-    pic2 :: PictureA SState
-    pic2 = annotateAna matAlg ( (fst $ unFix pic1) { selMatrix = Just mempty }
-                              , pic1
-                              )
-      where
-        matAlg :: (SState, (SState, PictureF (        PictureA SState))) ->
-                                    PictureF (SState, PictureA SState)
-        matAlg (currState,(_oldState,picture)) =
-          let newMat = do
-                currMat <- selMatrix currState
-                return $ currMat <> getMatrix picture
-              amendMat p = let (st,_p') = unFix p
-                               st' = st { selMatrix = newMat }
-                           in  (st', p)
-          in  fmap amendMat picture
-
-    pic3 :: PictureA SState
-    pic3 = annotateCata inPicAlg pic2
-      where
-        inPicAlg :: (SState, PictureF SState) -> SState
-        inPicAlg (oldState, _pic) =
-          let inExt = do
-                Ext2{..} <- selExt oldState
-                mat <- selMatrix oldState
-                let localPoint = applyMatrix (invertMatrix mat) point
-                    isIn = pointInExt weakExt localPoint
-                return isIn
-          in oldState { selInExt = inExt }
-
-    pic4 :: PictureA ()
-    pic4 = paraWithAnnotation transAlg pic3
+    pic' :: Picture
+    pic' = paraWithAnnotation transAlg $
+           evalSelectionInfo viewPort point pic
       where
         transAlg :: SState ->
-                    PictureF (PictureA (), PictureA SState) ->
+                    PictureF (PictureA (), PictureS) ->
                     PictureA ()
         transAlg currState picture@(split -> (_newPic, oldPic)) =
           let oldPic' = fmap deAnn oldPic in
@@ -180,7 +144,7 @@ select viewPort point selectionTrans pic = pic4
               _ -> oldPic'
 
         switchLastInExt :: Traversable.Traversable f =>
-                           f (PictureA (), PictureA SState) ->
+                           f (PictureA (), PictureS) ->
                            f (PictureA ())
         switchLastInExt f = flip evalState False .
                             unwrapMonadDual .
@@ -189,7 +153,7 @@ select viewPort point selectionTrans pic = pic4
                             (act <$>) $
                             f
           where
-            act :: (PictureA (), PictureA SState) -> State Bool (PictureA ())
+            act :: (PictureA (), PictureS) -> State Bool (PictureA ())
             act (newPic, oldPic) = do
               wasMatch <- get
               let oldPic' = deAnn oldPic
@@ -214,7 +178,6 @@ select viewPort point selectionTrans pic = pic4
     isSelectablePic :: PictureF a -> Bool
     isSelectablePic Blank         = True
     isSelectablePic Polygon{}     = True
-    isSelectablePic Line{}        = True
     isSelectablePic Circle{}      = True
     isSelectablePic Arc{}         = True
     isSelectablePic ThickCircle{} = True
@@ -222,4 +185,6 @@ select viewPort point selectionTrans pic = pic4
     isSelectablePic Text{}        = True
     isSelectablePic Bitmap{}      = True
     isSelectablePic Group{}       = True
+
+    isSelectablePic Line{}        = False
     isSelectablePic _             = False
