@@ -56,7 +56,8 @@ evalSelectionInfo :: ViewPort -> Point -> Picture -> PictureS
 evalSelectionInfo viewPort point pic = pic3
   where
     pic0 :: PictureS
-    pic0 = annotateCata (const initSState) (eliminateFixedSize viewPort pic)
+    pic0 = annotateCata (const initSState) $
+           eliminateFixedSize viewPort pic
 
     pic1 :: PictureS
     pic1 = annotateCata extAlg pic0
@@ -100,7 +101,8 @@ annotationUnderPoint :: ViewPort -> Point  -> Picture -> Maybe Annotation
 annotationUnderPoint viewPort point pic = topAnnotation
   where
     topAnnotation :: Maybe Annotation
-    topAnnotation = cataWithAnnotation getAnnAlg $ evalSelectionInfo viewPort point pic
+    topAnnotation = cataWithAnnotation getAnnAlg $
+                    evalSelectionInfo viewPort point pic
       where
         getAnnAlg :: SState -> PictureF (Maybe Annotation) -> Maybe Annotation
         getAnnAlg currState picture =
@@ -172,19 +174,19 @@ select viewPort point selectionTrans pic = pic'
         deAnn :: PictureA a -> PictureA ()
         deAnn = annotateCata (const ())
 
-    split :: Functor f => f (a,b) -> (f a, f b)
-    split f = (fst <$> f, snd <$> f)
+        split :: Functor f => f (a,b) -> (f a, f b)
+        split f = (fst <$> f, snd <$> f)
 
-    isSelectablePic :: PictureF a -> Bool
-    isSelectablePic Blank         = True
-    isSelectablePic Polygon{}     = True
-    isSelectablePic Circle{}      = True
-    isSelectablePic Arc{}         = True
-    isSelectablePic ThickCircle{} = True
-    isSelectablePic ThickArc{}    = True
-    isSelectablePic Text{}        = True
-    isSelectablePic Bitmap{}      = True
-    isSelectablePic Group{}       = True
+        isSelectablePic :: PictureF a -> Bool
+        isSelectablePic Blank         = True
+        isSelectablePic Polygon{}     = True
+        isSelectablePic Circle{}      = True
+        isSelectablePic Arc{}         = True
+        isSelectablePic ThickCircle{} = True
+        isSelectablePic ThickArc{}    = True
+        isSelectablePic Text{}        = True
+        isSelectablePic Bitmap{}      = True
+        isSelectablePic Group{}       = True
 
-    isSelectablePic Line{}        = False
-    isSelectablePic _             = False
+        isSelectablePic Line{}        = False
+        isSelectablePic _             = False
