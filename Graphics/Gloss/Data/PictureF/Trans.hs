@@ -42,6 +42,7 @@ toPicture viewPort =
       FixedSize _ _ _   -> error "toPicture: FixedSize primitive shouldn't appear at this stage."
       Group _ p         -> p
       Annotate _ p      -> p
+      SelectionTrigger _ p -> p
 
 eliminateFixedSize :: ViewPort -> Picture -> Picture
 eliminateFixedSize (viewPortToMatrix -> viewPortMatrix) =

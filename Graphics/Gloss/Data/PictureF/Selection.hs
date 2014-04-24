@@ -19,6 +19,7 @@ import Data.Fix
 import Data.Monoid
 import Data.Maybe
 
+import Control.Arrow
 import Control.Monad.State
 import Control.Applicative
 import Control.Applicative.WrapMonadDual
@@ -112,7 +113,7 @@ annotationUnderPoint viewPort point pic = topAnnotation
               _ -> getLast $ Foldable.foldMap Last picture
             _ -> Nothing
 
-selectWithExt :: ViewPort -> Point -> Picture -> Picture
+selectWithExt :: ViewPort -> Point -> Picture -> (Maybe Picture, Picture)
 selectWithExt viewPort point = select viewPort point extBorder
   where
     extBorder :: Picture -> Picture
@@ -122,28 +123,32 @@ selectWithExt viewPort point = select viewPort point extBorder
                                 , pic
                                 ]
 
-select :: ViewPort -> Point -> (Picture -> Picture) -> (Picture -> Picture)
+-- TODO: It's actually a lens!
+select :: ViewPort -> Point -> (Picture -> Picture) ->
+          Picture -> (Maybe Picture, Picture)
 select viewPort point selectionTrans pic = pic'
   where
-    pic' :: Picture
-    pic' = paraWithAnnotation transAlg $
+    pic' :: (Maybe Picture, Picture)
+    pic' = first getFirst $
+           paraWithAnnotation transAlg $
            evalSelectionInfo viewPort point pic
       where
         transAlg :: SState ->
-                    PictureF (PictureA (), PictureS) ->
-                    PictureA ()
-        transAlg currState picture@(split -> (_newPic, oldPic)) =
-          let oldPic' = fmap deAnn oldPic in
-          Fix . ((),) $
+                    PictureF ((First Picture, Picture), PictureS) ->
+                              (First Picture, Picture)
+        transAlg currState picture =
+          let oldPic' = wrap $ deAnn . snd <$> picture
+              selPics = Foldable.fold $ fst . fst <$> picture
+              picture' = (first snd) <$> picture
+          in
+          first (<> selPics) $
             case selInExt currState of
-              Just True -> if isSelectablePic oldPic'
-                           then snd . unFix .
-                                selectionTrans .
-                                Fix . ((),) $
-                                oldPic'
-                           else switchLastInExt $
-                                picture
-              _ -> oldPic'
+              Just True -> if isSelectablePic picture
+                           then (First (Just oldPic'),) $
+                                selectionTrans $ oldPic'
+                           else (mempty,) $
+                                 wrap $ switchLastInExt picture'
+              _ -> (mempty, oldPic')
 
         switchLastInExt :: Traversable.Traversable f =>
                            f (PictureA (), PictureS) ->
@@ -174,9 +179,6 @@ select viewPort point selectionTrans pic = pic'
         deAnn :: PictureA a -> PictureA ()
         deAnn = annotateCata (const ())
 
-        split :: Functor f => f (a,b) -> (f a, f b)
-        split f = (fst <$> f, snd <$> f)
-
         isSelectablePic :: PictureF a -> Bool
         isSelectablePic Blank         = True
         isSelectablePic Polygon{}     = True
@@ -187,6 +189,7 @@ select viewPort point selectionTrans pic = pic'
         isSelectablePic Text{}        = True
         isSelectablePic Bitmap{}      = True
         isSelectablePic Group{}       = True
+        isSelectablePic SelectionTrigger{} = True
 
         isSelectablePic Line{}        = False
         isSelectablePic _             = False

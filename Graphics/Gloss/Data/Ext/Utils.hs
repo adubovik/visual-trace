@@ -59,6 +59,7 @@ ext2Alg pic = mkWeakExt (getAtomExt pic) <> alg pic
     alg (Color _ p)         = p
     alg (Group _ p)         = p
     alg (Annotate _ p)      = p
+    alg (SelectionTrigger _ p) = p
     alg _                   = mempty
 
 getAtomExt :: PictureF a -> Ext

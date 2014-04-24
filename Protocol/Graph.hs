@@ -78,6 +78,7 @@ drawAnn Image{..} = pictures $ edgePics ++ nodePics
         drawNode (node, pos) = color G.red $
                                uncurry translate pos $
                                annotate ("Annotation\n" ++ show node) $
+                               selectionTrigger (nodeFeedback (node,pos)) $
                                group node $
                                pictures [
                                  translate 0 20.0 (circle 5.0) ,
@@ -87,6 +88,9 @@ drawAnn Image{..} = pictures $ edgePics ++ nodePics
                                  , circle 10.0
                                  ]
                                ]
+
+        nodeFeedback (node, pos) = Feedback $ \s -> do
+          putStrLn $ s ++ " | " ++ show (node,pos)
 
 evolution :: Float -> Image -> Image
 evolution _secElapsed = onAnnGraph2d $ fst . applyForces stdForces

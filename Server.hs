@@ -121,12 +121,20 @@ drawWorld World{..} = do
   ServerImage image <- readMVar wImage
   let annotPic = maybe PF.blank id wAnnot
       selectImage pic = case wMousePos of
-        Nothing -> pic
+        Nothing       -> (Nothing, pic)
         Just mousePos -> selectWithExt viewPort mousePos pic
+
+      (selPicture, picture) = selectImage $ drawAnn image
+
+  case selPicture of
+    Just (PF.unWrap -> PF.SelectionTrigger fb _) ->
+      PF.runFeedback fb "Selection trigger"
+    _ -> return ()
+
   return $
     applyViewPortToPicture viewPort $
       toPicture viewPort $
-        PF.pictures [ selectImage $ drawAnn image
+        PF.pictures [ picture
                     , annotPic
                     ]
   where

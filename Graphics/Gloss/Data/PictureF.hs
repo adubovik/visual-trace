@@ -10,6 +10,7 @@
 
 module Graphics.Gloss.Data.PictureF
  ( PictureF(..)
+ , Feedback(..)
  , Picture
  , PictureA
  , GroupId
@@ -31,13 +32,17 @@ module Graphics.Gloss.Data.PictureF
  , scale
  , pictures
 
- -- PictureF specific
+ -- PictureF specific primitives
  , fixHeight
  , fixWidth
  , group
  , annotate
+ , selectionTrigger
 
+ -- Misc
  , getMatrix
+ , wrap
+ , unWrap
  ) where
 
 import Graphics.Gloss(Path, BitmapData, Color)
@@ -71,7 +76,16 @@ data PictureF a
   | FixedSize (Maybe Float) (Maybe Float) a
   | Group GroupId a
   | Annotate Annotation a
+  | SelectionTrigger (Feedback String) a
   deriving (Functor, Traversable, Foldable, Show, Eq)
+
+newtype Feedback a = Feedback { runFeedback :: a -> IO () }
+
+instance Show (Feedback a) where
+  show _ = "(Feedback)"
+
+instance Eq (Feedback a) where
+  (==) = \_ _ -> True
 
 type PictureA a = Fix a PictureF
 type Picture    = PictureA ()
@@ -85,6 +99,9 @@ getMatrix pic = case pic of
 
 wrap :: PictureF Picture -> Picture
 wrap = Fix . ((),)
+
+unWrap :: Picture -> PictureF Picture
+unWrap = snd . unFix
 
 ---------------------
 -- Smart constructors.
@@ -157,6 +174,8 @@ scale = ((wrap.).) . Scale
 pictures :: [Picture] -> Picture
 pictures = wrap . Pictures
 
+-- | PictureF specific primitive
+
 -- | Fix absolute height of the picture (in pixels)
 fixHeight :: Float -> Picture -> Picture
 fixHeight h = wrap . FixedSize Nothing (Just h)
@@ -170,3 +189,6 @@ group = (wrap.) . Group
 
 annotate :: Annotation -> Picture -> Picture
 annotate = (wrap.) . Annotate
+
+selectionTrigger :: Feedback String -> Picture -> Picture
+selectionTrigger = (wrap.) . SelectionTrigger
