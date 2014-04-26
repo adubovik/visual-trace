@@ -18,7 +18,6 @@ module Graphics.Gloss.Data.Ext
  ) where
 
 import Data.Monoid
-import Data.Fix
 
 import qualified Graphics.Gloss.Data.PictureF as PF
 import Graphics.Gloss.Data.Matrix
@@ -109,12 +108,12 @@ fixSizeExt mw mh ext = case getExt ext of
     case (mw, mh) of
       (Nothing, Nothing) -> id
       (Just w,  Nothing) -> let ratio = w / we
-                            in  Fix . ((),) . PF.Scale ratio ratio
+                            in  PF.wrap . PF.Scale ratio ratio
       (Nothing,  Just h) -> let ratio = h / he
-                            in  Fix . ((),) . PF.Scale ratio ratio
+                            in  PF.wrap . PF.Scale ratio ratio
       (Just w,   Just h) -> let ratioh = h / he
                                 ratiow = w / we
-                            in  Fix . ((),) . PF.Scale ratiow ratioh
+                            in  PF.wrap . PF.Scale ratiow ratioh
       where
         we = ex * 2
         he = ey * 2
