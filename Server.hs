@@ -16,6 +16,7 @@ import qualified Graphics.UI.GLUT as GLUT
 
 import Graphics.Gloss.Interface.IO.Game
 
+import qualified Graphics.Gloss.Data.Event as Event
 import Graphics.Gloss.Data.Ext
 import Graphics.Gloss.Data.ViewState hiding (Command)
 import Graphics.Gloss.Data.ViewState.Focus
@@ -27,6 +28,7 @@ import qualified Graphics.Gloss.Text as T
 
 import Data.Monoid
 import qualified Data.Map as Map
+import qualified Data.Typeable as Typeable
 
 import Control.Applicative
 import Control.Concurrent.MVar
@@ -127,8 +129,14 @@ drawWorld World{..} = do
       (selPicture, picture) = selectImage $ drawAnn image
 
   case selPicture of
-    Just (PF.unWrap -> PF.SelectionTrigger fb _) ->
-      PF.runFeedback fb "Selection trigger"
+    Just (PF.unWrap -> PF.SelectionTrigger (PF.ExWrap fb) _) ->
+      case (Typeable.cast fb) :: Maybe (PF.Feedback Image) of
+        Just PF.Feedback{..} -> do
+          modifyMVar_ wImage $ \(ServerImage im) -> do
+            let event = Event.Event
+            fbSideEffect event im
+            return $ ServerImage $ fbTransform event im
+        Nothing -> return ()
     _ -> return ()
 
   return $

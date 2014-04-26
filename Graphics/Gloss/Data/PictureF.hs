@@ -2,15 +2,18 @@
    DeriveFunctor
  , DeriveFoldable
  , DeriveTraversable
+ , DeriveDataTypeable
  , TypeOperators
  , NoMonomorphismRestriction
  , ViewPatterns
  , TupleSections
+ , ExistentialQuantification
  #-}
 
 module Graphics.Gloss.Data.PictureF
  ( PictureF(..)
  , Feedback(..)
+ , ExWrap(..)
  , Picture
  , PictureA
  , GroupId
@@ -47,11 +50,13 @@ module Graphics.Gloss.Data.PictureF
 
 import Graphics.Gloss(Path, BitmapData, Color)
 import Graphics.Gloss.Data.Matrix
+import Graphics.Gloss.Data.Event(Event)
 
 import Data.Foldable(Foldable)
 import Data.Traversable(Traversable)
 import Data.Fix
 import Data.Monoid
+import Data.Typeable
 
 type GroupId = Int
 type Annotation = String
@@ -76,16 +81,28 @@ data PictureF a
   | FixedSize (Maybe Float) (Maybe Float) a
   | Group GroupId a
   | Annotate Annotation a
-  | SelectionTrigger (Feedback String) a
-  deriving (Functor, Traversable, Foldable, Show, Eq)
+  | SelectionTrigger (ExWrap Feedback) a
+  deriving (Functor, Traversable, Foldable, Eq, Show)
 
-newtype Feedback a = Feedback { runFeedback :: a -> IO () }
+data ExWrap f = forall a. Typeable a => ExWrap { unExWrap :: f a }
+
+instance Show (ExWrap f) where
+  show _ = "(ExWrap)"
+
+instance Eq (ExWrap a) where
+  (==) = const $ const False
+
+data Feedback a = Feedback
+  { fbSideEffect :: Event -> a -> IO ()
+  , fbTransform  :: Event -> a -> a
+  }
+  deriving Typeable
 
 instance Show (Feedback a) where
   show _ = "(Feedback)"
 
 instance Eq (Feedback a) where
-  (==) = \_ _ -> True
+  (==) = const $ const False
 
 type PictureA a = Fix a PictureF
 type Picture    = PictureA ()
@@ -190,5 +207,5 @@ group = (wrap.) . Group
 annotate :: Annotation -> Picture -> Picture
 annotate = (wrap.) . Annotate
 
-selectionTrigger :: Feedback String -> Picture -> Picture
+selectionTrigger :: ExWrap Feedback -> Picture -> Picture
 selectionTrigger = (wrap.) . SelectionTrigger

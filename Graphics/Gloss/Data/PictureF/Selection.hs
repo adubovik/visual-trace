@@ -151,8 +151,8 @@ select viewPort point selectionTrans pic = pic'
               _ -> (mempty, oldPic')
 
         switchLastInExt :: Traversable.Traversable f =>
-                           f (PictureA (), PictureS) ->
-                           f (PictureA ())
+                           f (Picture, PictureS) ->
+                           f (Picture)
         switchLastInExt f = flip evalState False .
                             unwrapMonadDual .
                             Traversable.sequenceA .
@@ -160,7 +160,7 @@ select viewPort point selectionTrans pic = pic'
                             (act <$>) $
                             f
           where
-            act :: (PictureA (), PictureS) -> State Bool (PictureA ())
+            act :: (Picture, PictureS) -> State Bool (Picture)
             act (newPic, oldPic) = do
               wasMatch <- get
               let oldPic' = deAnn oldPic
@@ -176,7 +176,7 @@ select viewPort point selectionTrans pic = pic'
                 else
                   return oldPic'
 
-        deAnn :: PictureA a -> PictureA ()
+        deAnn :: PictureA a -> Picture
         deAnn = annotateCata (const ())
 
         isSelectablePic :: PictureF a -> Bool
