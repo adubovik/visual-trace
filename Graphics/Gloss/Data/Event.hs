@@ -1,3 +1,6 @@
-module Graphics.Gloss.Data.Event where
+module Graphics.Gloss.Data.Event
+ ( Event(..)
+ ) where
 
-data Event = Event
+data Event = Event | InverseEvent
+  deriving (Eq, Show)

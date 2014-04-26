@@ -22,6 +22,7 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Maybe(fromMaybe)
 import Data.Typeable
+import Text.Printf
 
 import Graphics.Gloss.Data.Event
 import Graphics.Gloss.Data.Point
@@ -40,6 +41,7 @@ type Graph = Graph2D () () Key
 
 data Image = Image
   { graph2d :: Graph
+  , nodeUnderMouse :: Maybe (Node Key)
   }
   deriving (Show, Read, Eq, Ord, Typeable)
 
@@ -47,7 +49,9 @@ onAnnGraph2d :: (Graph -> Graph) -> (Image -> Image)
 onAnnGraph2d f im = im { graph2d = f (graph2d im) }
 
 mkImage :: Image
-mkImage = Image { graph2d = empty }
+mkImage = Image { graph2d = empty
+                , nodeUnderMouse = Nothing
+                }
 
 action :: Command -> Image -> Image
 action (InsertEdge fr to) = onAnnGraph2d $ insertEdge ((fr,to),Nothing)
@@ -64,7 +68,7 @@ drawAnn Image{..} = pictures $ edgePics ++ nodePics
           where
             err = error $ "drawAnn: Can't find position of " ++ show node
 
-        drawEdge (fr,to) = color G.green $
+        drawEdge (fr,to) = color G.white $
                            line [ findPos fr
                                 , findPos to
                                 ]
@@ -78,7 +82,12 @@ drawAnn Image{..} = pictures $ edgePics ++ nodePics
     nodePics :: [Picture]
     nodePics = map drawNode $ Map.toList nodePoss
       where
-        drawNode (node, pos) = color G.red $
+        nodeColor node | Just node' <- nodeUnderMouse
+                       , node == node'
+                       = G.red
+                       | otherwise = G.green
+
+        drawNode (node, pos) = color (nodeColor node) $
                                uncurry translate pos $
                                annotate ("Annotation\n" ++ show node) $
                                selectionTrigger (ExWrap $ nodeFeedback (node,pos)) $
@@ -94,9 +103,12 @@ drawAnn Image{..} = pictures $ edgePics ++ nodePics
 
         nodeFeedback :: (Node Key, Point) -> Feedback Image
         nodeFeedback (node, pos) = Feedback
-          { fbSideEffect = \Event _image -> putStrLn $ "Selected " ++ show (node,pos)
-          , fbTransform  = \Event image -> image
+          { fbSideEffect = \event _image -> putStrLn $ printf "Event %s on %s " (show event) (show (node,pos))
+          , fbTransform  = transform
           }
+          where
+            transform Event        image = image { nodeUnderMouse = Just node }
+            transform InverseEvent image = image { nodeUnderMouse = Nothing }
 
 evolution :: Float -> Image -> Image
 evolution _secElapsed = onAnnGraph2d $ fst . applyForces stdForces

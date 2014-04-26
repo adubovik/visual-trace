@@ -45,6 +45,7 @@ data World = World
  , wImage     :: MVar ServerImage
  , wAnnot     :: Maybe PF.Picture
  , wMousePos  :: Maybe Point
+ , wLastFeedback :: Maybe (PF.ExWrap PF.Feedback)
  }
 
 -- TODO: lens
@@ -82,17 +83,41 @@ render world = do
 eventHandler :: Event -> World -> IO World
 eventHandler e@(EventMotion mousePos) w = do
   ServerImage image <- readMVar (wImage w)
-  let invMousePos = invertViewPort viewPort mousePos
+  let localMousePos = invertViewPort viewPort mousePos
       annotPos = invertViewPort viewPort $ mousePos + (15,15)
       viewPort = viewStateViewPort (wViewState w)
-      annotPic = drawAnnot annotPos <$> getAnnotation viewPort invMousePos image
+      annotPic = drawAnnot annotPos <$> getAnnotation viewPort localMousePos image
       drawAnnot pos msg =
         PF.color blue $
         uncurry PF.translate pos $
         T.textWithBackground (Just 30) yellow msg
+
+  let selPicture = fst $
+                   selectWithExt viewPort localMousePos $
+                   drawAnn image
+
+  let newFeedback = case selPicture of
+        Just (PF.unWrap -> PF.SelectionTrigger fb _) -> Just fb
+        _ -> Nothing
+
+      runFeedbackWithEvent feedBack event =
+        case feedBack of
+          Just (PF.ExWrap fb) ->
+            case (Typeable.cast fb) :: Maybe (PF.Feedback Image) of
+              Just PF.Feedback{..} -> do
+                modifyMVar_ (wImage w) $ \(ServerImage im) -> do
+                  fbSideEffect event im
+                  return $ ServerImage $ fbTransform event im
+              Nothing -> return ()
+          Nothing -> return ()
+
+  runFeedbackWithEvent (wLastFeedback w) Event.InverseEvent
+  runFeedbackWithEvent newFeedback       Event.Event
+
   return $ w { wAnnot = annotPic
              , wViewState = updateViewStateWithEvent e (wViewState w)
-             , wMousePos = Just invMousePos
+             , wMousePos = Just localMousePos
+             , wLastFeedback = newFeedback
              }
 
 eventHandler (EventKey (Char 'r') Down _mod _pos) w = do
@@ -123,21 +148,10 @@ drawWorld World{..} = do
   ServerImage image <- readMVar wImage
   let annotPic = maybe PF.blank id wAnnot
       selectImage pic = case wMousePos of
-        Nothing       -> (Nothing, pic)
-        Just mousePos -> selectWithExt viewPort mousePos pic
+        Nothing       -> pic
+        Just mousePos -> snd $ selectWithExt viewPort mousePos pic
 
-      (selPicture, picture) = selectImage $ drawAnn image
-
-  case selPicture of
-    Just (PF.unWrap -> PF.SelectionTrigger (PF.ExWrap fb) _) ->
-      case (Typeable.cast fb) :: Maybe (PF.Feedback Image) of
-        Just PF.Feedback{..} -> do
-          modifyMVar_ wImage $ \(ServerImage im) -> do
-            let event = Event.Event
-            fbSideEffect event im
-            return $ ServerImage $ fbTransform event im
-        Nothing -> return ()
-    _ -> return ()
+      picture = selectImage $ drawAnn image
 
   return $
     applyViewPortToPicture viewPort $
@@ -158,6 +172,7 @@ mkWorld = do
     , wImage = image
     , wAnnot = Nothing
     , wMousePos = Nothing
+    , wLastFeedback = Nothing
     }
   where
     commandConfig = [oTranslate, oRotate, oRestore]

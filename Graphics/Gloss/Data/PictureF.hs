@@ -90,7 +90,7 @@ instance Show (ExWrap f) where
   show _ = "(ExWrap)"
 
 instance Eq (ExWrap a) where
-  (==) = const $ const False
+  (==) = const $ const True
 
 data Feedback a = Feedback
   { fbSideEffect :: Event -> a -> IO ()
@@ -102,7 +102,7 @@ instance Show (Feedback a) where
   show _ = "(Feedback)"
 
 instance Eq (Feedback a) where
-  (==) = const $ const False
+  (==) = const $ const True
 
 type PictureA a = Fix a PictureF
 type Picture    = PictureA ()
