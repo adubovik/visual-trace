@@ -3,6 +3,7 @@
  , ViewPatterns
  , RecordWildCards
  , TupleSections
+ , NamedFieldPuns
  #-}
 
 module Server where
@@ -96,8 +97,8 @@ eventHook eh event =
   >=> eh event
   >=> onViewState (return . updateViewStateWithEvent event)
 
-handeSelectionWithEvent :: Event.Event -> Point -> World -> IO World
-handeSelectionWithEvent mouseEvent mousePos w = do
+handeSelectionWithEvent :: (Bool -> Event.Event) -> Point -> World -> IO World
+handeSelectionWithEvent mkEvent mousePos w = do
   ServerImage image <- readMVar (wImage w)
 
   let localMousePos = invertViewPort viewPort mousePos
@@ -135,9 +136,11 @@ handeSelectionWithEvent mouseEvent mousePos w = do
               Nothing -> return ()
           Nothing -> return ()
 
-  when (oldFeedback /= newFeedback) $
+  let selectionSwitch = oldFeedback /= newFeedback
+
+  when selectionSwitch $
     runFeedbackWithEvent oldFeedback Event.InverseEvent
-  runFeedbackWithEvent newFeedback mouseEvent
+  runFeedbackWithEvent newFeedback (mkEvent selectionSwitch)
 
   return $ w { wAnnot = annotPic
              , wMousePos = Just localMousePos
@@ -145,8 +148,17 @@ handeSelectionWithEvent mouseEvent mousePos w = do
              }
 
 eventHandler :: EventHandler
-eventHandler (EventMotion mousePos) w =
-  handeSelectionWithEvent Event.Event mousePos w
+eventHandler (EventMotion mousePos) w@World{wEventStorage} =
+  handeSelectionWithEvent mkEvent mousePos w
+  where
+    mkEvent False | isMousePressed LeftButton wEventStorage
+                  , ( _, toLocal -> newMousePos) <-
+                      getMousePosHistory wEventStorage
+                  = Event.Drag newMousePos
+    mkEvent _ = Event.Event
+
+    toLocal = invertViewPort viewPort
+    viewPort = viewStateViewPort (wViewState w)
 
 eventHandler (EventKey (Char 'r') Down _mod _pos) w = do
   ServerImage image <- readMVar (wImage w)

@@ -45,8 +45,8 @@ data Image = Image
   }
   deriving (Show, Read, Eq, Ord, Typeable)
 
-onAnnGraph2d :: (Graph -> Graph) -> (Image -> Image)
-onAnnGraph2d f im = im { graph2d = f (graph2d im) }
+onGraph :: (Graph -> Graph) -> (Image -> Image)
+onGraph f im = im { graph2d = f (graph2d im) }
 
 mkImage :: Image
 mkImage = Image { graph2d = empty
@@ -54,9 +54,9 @@ mkImage = Image { graph2d = empty
                 }
 
 action :: Command -> Image -> Image
-action (InsertEdge fr to) = onAnnGraph2d $ insertEdge ((fr,to),Nothing)
+action (InsertEdge fr to) = onGraph $ insertEdge ((fr,to),Nothing)
 action (InsertNode node pos) =
-  onAnnGraph2d $ insertNode (node, Just ((), pos))
+  onGraph $ insertNode (node, Just ((), pos))
 
 drawAnn :: Image -> Picture
 drawAnn Image{..} = pictures $ edgePics ++ nodePics
@@ -110,9 +110,10 @@ drawAnn Image{..} = pictures $ edgePics ++ nodePics
           where
             transform Event        image = image { nodeUnderMouse = Just node }
             transform InverseEvent image = image { nodeUnderMouse = Nothing }
+            transform (Drag newPos)image = onGraph (adjustNodePos (const newPos) node) image
 
 evolution :: Float -> Image -> Image
-evolution _secElapsed = onAnnGraph2d $ fst . applyForces stdForces
+evolution _secElapsed = onGraph $ fst . applyForces stdForces
 
 -- Common logic for all protocols
 

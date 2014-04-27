@@ -5,6 +5,7 @@ module Data.Graph.Layout.Physics
  , lengthVector
  , mulVector
  , Force
+ , Vector
  ) where
 
 import Graphics.Gloss.Data.Point

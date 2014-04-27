@@ -3,12 +3,18 @@
  , TupleSections
  #-}
 
-module Data.Graph.Layout where
+module Data.Graph.Layout
+ ( Graph2D
+ , stdForces
+ , applyForces
+ , adjustNodePos
+ ) where
 
 import Graphics.Gloss.Data.Point
 import Data.Graph.Dynamic.Annotated
 import Data.Graph.Layout.Physics
 
+import Control.Arrow
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
@@ -22,10 +28,18 @@ stdForces = [ logSpring (2,1)
 moveCoeff :: Float
 moveCoeff = 0.1
 
-deltaEps :: Float
-deltaEps = 0.1
+_deltaEps :: Float
+_deltaEps = 0.1
 
-applyForces :: forall na ea key. (Ord key, Eq key, Show key, Eq ea, Eq na, Show ea, Show na) =>
+adjustNodePos :: (Ord key, Eq (Node key)) =>
+                 (Point -> Point) -> Node key ->
+                 Graph2D na ea key -> Graph2D na ea key
+adjustNodePos changePos node = adjustNodeAnn adjPos
+  where
+    adjPos node' | node /= node' = id
+                 | otherwise = second changePos
+
+applyForces :: forall na ea key. (Ord key, Eq key, Eq ea, Eq na) =>
                [Force] ->
                Graph2D na ea key -> (Graph2D na ea key, Float)
 applyForces forces g = (g', avgDelta)
