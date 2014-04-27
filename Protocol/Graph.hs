@@ -105,6 +105,7 @@ drawAnn Image{..} = pictures $ edgePics ++ nodePics
         nodeFeedback (node, pos) = Feedback
           { fbSideEffect = \event _image -> putStrLn $ printf "Event %s on %s " (show event) (show (node,pos))
           , fbTransform  = transform
+          , fbId         = show node
           }
           where
             transform Event        image = image { nodeUnderMouse = Just node }

@@ -22,7 +22,7 @@ import Graphics.Gloss.Data.ViewState hiding (Command)
 import Graphics.Gloss.Data.ViewState.Focus
 import Graphics.Gloss.Data.Ext.Utils
 import qualified Graphics.Gloss.Data.PictureF as PF
-import Graphics.Gloss.Data.PictureF.Selection(selectWithExt)
+import Graphics.Gloss.Data.PictureF.Selection(selectWithExt, select)
 import Graphics.Gloss.Data.PictureF.Trans(toPicture)
 import qualified Graphics.Gloss.Text as T
 
@@ -83,24 +83,32 @@ render world = do
 eventHandler :: Event -> World -> IO World
 eventHandler e@(EventMotion mousePos) w = do
   ServerImage image <- readMVar (wImage w)
+
   let localMousePos = invertViewPort viewPort mousePos
-      annotPos = invertViewPort viewPort $ mousePos + (15,15)
       viewPort = viewStateViewPort (wViewState w)
-      annotPic = drawAnnot annotPos <$> getAnnotation viewPort localMousePos image
-      drawAnnot pos msg =
-        PF.color blue $
-        uncurry PF.translate pos $
-        T.textWithBackground (Just 30) yellow msg
 
-  let selPicture = fst $
-                   selectWithExt viewPort localMousePos $
-                   drawAnn image
+      annotPic = drawAnnot annotPos <$>
+                 getAnnotation viewPort localMousePos image
+        where
+          annotPos = invertViewPort viewPort $
+                     mousePos + (15,15)
+          drawAnnot pos msg =
+            PF.color blue $
+            uncurry PF.translate pos $
+            let oneLineHeight = Just 30 in
+            T.textWithBackground oneLineHeight yellow msg
 
-  let newFeedback = case selPicture of
+  let selectedPic = fst $
+                    select viewPort localMousePos id $
+                    drawAnn image
+
+      newFeedback = case selectedPic of
         Just (PF.unWrap -> PF.SelectionTrigger fb _) -> Just fb
         _ -> Nothing
 
-      runFeedbackWithEvent feedBack event =
+      oldFeedback = wLastFeedback w
+
+  let runFeedbackWithEvent feedBack event =
         case feedBack of
           Just (PF.ExWrap fb) ->
             case (Typeable.cast fb) :: Maybe (PF.Feedback Image) of
@@ -111,8 +119,9 @@ eventHandler e@(EventMotion mousePos) w = do
               Nothing -> return ()
           Nothing -> return ()
 
-  runFeedbackWithEvent (wLastFeedback w) Event.InverseEvent
-  runFeedbackWithEvent newFeedback       Event.Event
+  when (oldFeedback /= newFeedback) $
+    runFeedbackWithEvent oldFeedback Event.InverseEvent
+  runFeedbackWithEvent newFeedback Event.Event
 
   return $ w { wAnnot = annotPic
              , wViewState = updateViewStateWithEvent e (wViewState w)

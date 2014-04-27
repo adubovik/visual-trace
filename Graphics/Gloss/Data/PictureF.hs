@@ -8,11 +8,14 @@
  , ViewPatterns
  , TupleSections
  , ExistentialQuantification
+ , FlexibleContexts
+ , FlexibleInstances
  #-}
 
 module Graphics.Gloss.Data.PictureF
  ( PictureF(..)
  , Feedback(..)
+ , FeedbackId
  , ExWrap(..)
  , Picture
  , PictureA
@@ -57,9 +60,12 @@ import Data.Traversable(Traversable)
 import Data.Fix
 import Data.Monoid
 import Data.Typeable
+import Data.Function
+import Text.Printf
 
 type GroupId = Int
 type Annotation = String
+type FeedbackId = String
 
 data PictureF a
   = Blank
@@ -86,23 +92,27 @@ data PictureF a
 
 data ExWrap f = forall a. Typeable a => ExWrap { unExWrap :: f a }
 
-instance Show (ExWrap f) where
-  show _ = "(ExWrap)"
+instance Show (ExWrap Feedback) where
+  show (ExWrap a) = show a
 
-instance Eq (ExWrap a) where
-  (==) = const $ const True
+instance Eq (ExWrap Feedback) where
+  (ExWrap a) == (ExWrap b) =
+    case cast a of
+      Nothing -> False
+      Just a' -> a' == b
 
 data Feedback a = Feedback
   { fbSideEffect :: Event -> a -> IO ()
   , fbTransform  :: Event -> a -> a
+  , fbId         :: FeedbackId
   }
   deriving Typeable
 
 instance Show (Feedback a) where
-  show _ = "(Feedback)"
+  show fb = printf "Feedback (%s)" (fbId fb)
 
 instance Eq (Feedback a) where
-  (==) = const $ const True
+  (==) = (==) `on` fbId
 
 type PictureA a = Fix a PictureF
 type Picture    = PictureA ()
