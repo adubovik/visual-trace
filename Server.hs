@@ -17,6 +17,7 @@ import qualified Graphics.UI.GLUT as GLUT
 import Graphics.Gloss.Interface.IO.Game
 
 import qualified Graphics.Gloss.Data.Event as Event
+import Graphics.Gloss.Data.EventStorage
 import Graphics.Gloss.Data.Ext
 import Graphics.Gloss.Data.ViewState hiding (Command)
 import Graphics.Gloss.Data.ViewState.Focus
@@ -38,6 +39,7 @@ import Control.Monad
 -- import Protocol.ProgressBar
 import Protocol.Graph
 
+type EventHandler = Event -> World -> IO World
 newtype ServerImage = ServerImage Image
 
 data World = World
@@ -46,11 +48,19 @@ data World = World
  , wAnnot     :: Maybe PF.Picture
  , wMousePos  :: Maybe Point
  , wLastFeedback :: Maybe (PF.ExWrap PF.Feedback)
+ , wEventStorage :: EventStorage
  }
 
 -- TODO: lens
-onViewState :: (ViewState -> ViewState) -> (World -> World)
-onViewState f w = w { wViewState = f (wViewState w) }
+onViewState :: Monad m => (ViewState -> m ViewState) -> (World -> m World)
+onViewState f w = do
+  viewState' <- f (wViewState w)
+  return $ w { wViewState = viewState' }
+
+onEventStorage :: Monad m => (EventStorage -> m EventStorage) -> (World -> m World)
+onEventStorage f w = do
+  eventStorage' <- f (wEventStorage w)
+  return $ w { wEventStorage = eventStorage' }
 
 handler :: World -> SockAddr -> URL -> Request String -> IO (Response String)
 handler (wImage -> state) _addr _url req = do
@@ -77,11 +87,17 @@ render world = do
     fps
     world
     drawWorld
-    eventHandler
+    (eventHook eventHandler)
     timeEvolution
 
-eventHandler :: Event -> World -> IO World
-eventHandler e@(EventMotion mousePos) w = do
+eventHook :: EventHandler -> EventHandler
+eventHook eh event =
+      onEventStorage (return . updateEventStorage event)
+  >=> eh event
+  >=> onViewState (return . updateViewStateWithEvent event)
+
+handeSelectionWithEvent :: Event.Event -> Point -> World -> IO World
+handeSelectionWithEvent mouseEvent mousePos w = do
   ServerImage image <- readMVar (wImage w)
 
   let localMousePos = invertViewPort viewPort mousePos
@@ -121,13 +137,16 @@ eventHandler e@(EventMotion mousePos) w = do
 
   when (oldFeedback /= newFeedback) $
     runFeedbackWithEvent oldFeedback Event.InverseEvent
-  runFeedbackWithEvent newFeedback Event.Event
+  runFeedbackWithEvent newFeedback mouseEvent
 
   return $ w { wAnnot = annotPic
-             , wViewState = updateViewStateWithEvent e (wViewState w)
              , wMousePos = Just localMousePos
              , wLastFeedback = newFeedback
              }
+
+eventHandler :: EventHandler
+eventHandler (EventMotion mousePos) w =
+  handeSelectionWithEvent Event.Event mousePos w
 
 eventHandler (EventKey (Char 'r') Down _mod _pos) w = do
   ServerImage image <- readMVar (wImage w)
@@ -135,15 +154,14 @@ eventHandler (EventKey (Char 'r') Down _mod _pos) w = do
       focusExt = enlargeExt 1.1 1.1 imageExt
 
   windowSize <- getWindowsSize
-  return $ onViewState (focusViewState focusExt windowSize) w
+  onViewState (return . focusViewState focusExt windowSize) w
   where
     getWindowsSize :: IO (Int,Int)
     getWindowsSize = do
       GLUT.Size width height <- GLUT.get GLUT.windowSize
       return (fromIntegral width, fromIntegral height)
 
-eventHandler e w = return $
-  w { wViewState = updateViewStateWithEvent e (wViewState w) }
+eventHandler _e w = return w
 
 timeEvolution :: Float -> World -> IO World
 timeEvolution secElapsed w@(wImage -> state) = do
@@ -171,8 +189,8 @@ drawWorld World{..} = do
   where
     viewPort = viewStateViewPort wViewState
 
-mkWorld :: IO World
-mkWorld = do
+initWorld :: IO World
+initWorld = do
   image <- newMVar (ServerImage mkImage)
   return $ World
     { wViewState = viewStateInitWithConfig $ Map.toList $
@@ -182,6 +200,7 @@ mkWorld = do
     , wAnnot = Nothing
     , wMousePos = Nothing
     , wLastFeedback = Nothing
+    , wEventStorage = initEventStorage
     }
   where
     commandConfig = [oTranslate, oRotate, oRestore]
@@ -199,6 +218,6 @@ main = do
                              }
   putStrLn "Server is running..."
 
-  world <- mkWorld
+  world <- initWorld
   void $ forkIO (render world)
   serverWith config (handler world)

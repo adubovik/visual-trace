@@ -96,10 +96,7 @@ instance Show (ExWrap Feedback) where
   show (ExWrap a) = show a
 
 instance Eq (ExWrap Feedback) where
-  (ExWrap a) == (ExWrap b) =
-    case cast a of
-      Nothing -> False
-      Just a' -> a' == b
+  (ExWrap a) == (ExWrap b) = maybe False (==b) $ cast a
 
 data Feedback a = Feedback
   { fbSideEffect :: Event -> a -> IO ()
