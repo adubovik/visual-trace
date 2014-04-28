@@ -39,7 +39,8 @@ logSpring (c1,c2) = force
 quadRepel :: Float -> Force
 quadRepel c = force
   where
-    f d = - (c / d**2)
+    f d = let d' = max 10 d
+          in - (c / d'**2)
     force _areConnected = forceViaDist f
 
 

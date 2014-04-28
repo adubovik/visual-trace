@@ -4,6 +4,8 @@ module Graphics.Gloss.Data.EventStorage
  , updateEventStorage
  , isMousePressed
  , getMousePosHistory
+ , getPrevMousePos
+ , getCurrMousePos
  ) where
 
 import Control.Arrow
@@ -30,6 +32,12 @@ isMousePressed mb = Set.member mb . mouseState
 
 getMousePosHistory :: EventStorage -> (Point,Point)
 getMousePosHistory = prevMousePos &&& currMousePos
+
+getCurrMousePos :: EventStorage -> Point
+getCurrMousePos = currMousePos
+
+getPrevMousePos :: EventStorage -> Point
+getPrevMousePos = prevMousePos
 
 updateMouseState :: KeyState -> MouseButton ->
                     Set.Set MouseButton -> Set.Set MouseButton

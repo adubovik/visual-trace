@@ -41,7 +41,10 @@ import Control.Monad
 import Protocol.Graph
 
 type EventHandler = Event -> World -> IO World
-newtype ServerImage = ServerImage Image
+newtype ServerImage = ServerImage { unServerImage :: Image }
+
+onServerImage :: (Image -> Image) -> ServerImage -> ServerImage
+onServerImage f = ServerImage . f . unServerImage
 
 data World = World
  { wViewState :: ViewState
@@ -97,15 +100,14 @@ eventHook eh event =
   >=> eh event
   >=> onViewState (return . updateViewStateWithEvent event)
 
-handeSelectionWithEvent :: (Bool -> Event.Event) -> Point -> World -> IO World
-handeSelectionWithEvent mkEvent mousePos w = do
-  ServerImage image <- readMVar (wImage w)
-
-  let localMousePos = invertViewPort viewPort mousePos
+handeSelectionWithEvent :: Image -> World -> IO World
+handeSelectionWithEvent oldImage w = do
+  let mousePos = getCurrMousePos (wEventStorage w)
+      localMousePos = invertViewPort viewPort mousePos
       viewPort = viewStateViewPort (wViewState w)
 
       annotPic = drawAnnot annotPos <$>
-                 getAnnotation viewPort localMousePos image
+                 getAnnotation viewPort localMousePos oldImage
         where
           annotPos = invertViewPort viewPort $
                      mousePos + (15,15)
@@ -117,7 +119,7 @@ handeSelectionWithEvent mkEvent mousePos w = do
 
   let selectedPic = fst $
                     select viewPort localMousePos id $
-                    drawAnn image
+                    drawAnn oldImage
 
       newFeedback = case selectedPic of
         Just (PF.unWrap -> PF.SelectionTrigger fb _) -> Just fb
@@ -137,28 +139,36 @@ handeSelectionWithEvent mkEvent mousePos w = do
           Nothing -> return ()
 
   let selectionSwitch = oldFeedback /= newFeedback
+      event = mkEvent viewPort (wEventStorage w) selectionSwitch
 
-  when selectionSwitch $
-    runFeedbackWithEvent oldFeedback Event.InverseEvent
-  runFeedbackWithEvent newFeedback (mkEvent selectionSwitch)
+
+  newFeedback' <-
+    case event of
+      Event.Drag _ -> do
+        runFeedbackWithEvent oldFeedback event
+        return oldFeedback
+      _            -> do
+        runFeedbackWithEvent oldFeedback Event.InverseEvent
+        runFeedbackWithEvent newFeedback event
+        return newFeedback
 
   return $ w { wAnnot = annotPic
              , wMousePos = Just localMousePos
-             , wLastFeedback = newFeedback
+             , wLastFeedback = newFeedback'
              }
 
-eventHandler :: EventHandler
-eventHandler (EventMotion mousePos) w@World{wEventStorage} =
-  handeSelectionWithEvent mkEvent mousePos w
-  where
-    mkEvent False | isMousePressed LeftButton wEventStorage
-                  , ( _, toLocal -> newMousePos) <-
-                      getMousePosHistory wEventStorage
-                  = Event.Drag newMousePos
-    mkEvent _ = Event.Event
+mkEvent :: ViewPort -> EventStorage -> Bool -> Event.Event
+mkEvent viewPort eventStorage _
+  | isMousePressed LeftButton eventStorage
+  , let toLocal = invertViewPort viewPort
+  , (toLocal -> newMousePos) <- getCurrMousePos eventStorage
+  = Event.Drag newMousePos
+mkEvent _ _ _ = Event.Event
 
-    toLocal = invertViewPort viewPort
-    viewPort = viewStateViewPort (wViewState w)
+eventHandler :: EventHandler
+eventHandler (EventMotion _) w = do
+  ServerImage oldImage <- readMVar (wImage w)
+  handeSelectionWithEvent oldImage w
 
 eventHandler (EventKey (Char 'r') Down _mod _pos) w = do
   ServerImage image <- readMVar (wImage w)
@@ -176,11 +186,13 @@ eventHandler (EventKey (Char 'r') Down _mod _pos) w = do
 eventHandler _e w = return w
 
 timeEvolution :: Float -> World -> IO World
-timeEvolution secElapsed w@(wImage -> state) = do
-  modifyMVar_ state $ \(ServerImage image) -> do
-    let image' = evolution secElapsed image
-    return $ ServerImage image'
-  return w
+timeEvolution secElapsed w = do
+  ServerImage oldImage <- readMVar (wImage w)
+
+  modifyMVar_ (wImage w) $
+    return . onServerImage (evolution secElapsed)
+
+  handeSelectionWithEvent oldImage w
 
 drawWorld :: World -> IO Picture
 drawWorld World{..} = do
