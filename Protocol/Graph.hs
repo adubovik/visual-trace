@@ -18,13 +18,15 @@ module Protocol.Graph
 import Data.Graph.Dynamic.Annotated
 import Data.Graph.Layout
 
+import Control.Applicative hiding (empty)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Maybe(fromMaybe)
 import Data.Typeable
 import Text.Printf
 
-import Graphics.Gloss.Data.Event
+import Graphics.Gloss.Interface.Pure.Game(MouseButton(..))
+import Graphics.Gloss.Data.EventInfo
 import Graphics.Gloss.Data.Point
 import Graphics.Gloss.Data.ViewPort
 import qualified Graphics.Gloss as G
@@ -106,11 +108,42 @@ drawAnn Image{..} = pictures $ edgePics ++ nodePics
           { fbSideEffect = \event _image -> putStrLn $ printf "Event %s on %s " (show event) (show (node,pos))
           , fbTransform  = transform
           , fbId         = show node
+          , fbFocusCapture = stdFocusCapture
           }
           where
-            transform Event        image = image { nodeUnderMouse = Just node }
-            transform InverseEvent image = image { nodeUnderMouse = Nothing }
-            transform (Drag newPos)image = onGraph (adjustNodePos (const newPos) node) image
+            leftButtonDrag eventHistory =
+               isMousePressed LeftButton eventHistory &&
+              wasMousePressed LeftButton eventHistory
+
+            stdFocusCapture EventInfo{..}
+              | FocusLost <- efFocus
+              , leftButtonDrag efEventHistory
+              = FocusCaptured
+              | FocusStill <- efFocus
+              = FocusCaptured
+              | otherwise
+              = FocusReleased
+
+            transform = (.) <$> highlightTransform <*> dragTransform
+
+            highlightTransform ef@EventInfo{..} image
+              | FocusGained <- efFocus
+              = image { nodeUnderMouse = Just node }
+
+              | FocusLost <- efFocus
+              , FocusReleased <- stdFocusCapture ef
+              = image { nodeUnderMouse = Nothing }
+
+              | otherwise
+              = image
+
+            dragTransform EventInfo{..} image
+              | leftButtonDrag efEventHistory
+              , newPos <- getCurrMousePos efEventHistory
+              = onGraph (adjustNodePos (const newPos) node) image
+
+              | otherwise
+              = image
 
 evolution :: Float -> Image -> Image
 evolution _secElapsed = onGraph $ fst . applyForces stdForces

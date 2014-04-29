@@ -17,8 +17,7 @@ import qualified Graphics.UI.GLUT as GLUT
 
 import Graphics.Gloss.Interface.IO.Game
 
-import qualified Graphics.Gloss.Data.Event as Event
-import Graphics.Gloss.Data.EventStorage
+import Graphics.Gloss.Data.EventInfo
 import Graphics.Gloss.Data.Ext
 import Graphics.Gloss.Data.ViewState hiding (Command)
 import Graphics.Gloss.Data.ViewState.Focus
@@ -49,7 +48,7 @@ data World = World
  , wAnnot     :: Maybe PF.Picture
  , wMousePos  :: Maybe Point
  , wLastFeedback :: Maybe (PF.ExWrap PF.Feedback)
- , wEventStorage :: EventStorage
+ , wEventHistory :: EventHistory
  }
 
 onServerImage :: Functor m => (Image -> m Image) -> ServerImage -> m ServerImage
@@ -67,10 +66,10 @@ onViewState f w = do
   viewState' <- f (wViewState w)
   return $ w { wViewState = viewState' }
 
-onEventStorage :: Monad m => (EventStorage -> m EventStorage) -> (World -> m World)
-onEventStorage f w = do
-  eventStorage' <- f (wEventStorage w)
-  return $ w { wEventStorage = eventStorage' }
+onEventHistory :: Monad m => (EventHistory -> m EventHistory) -> (World -> m World)
+onEventHistory f w = do
+  eventHistory' <- f (wEventHistory w)
+  return $ w { wEventHistory = eventHistory' }
 
 handler :: World -> SockAddr -> URL -> Request String -> IO (Response String)
 handler world _addr _url req = do
@@ -101,16 +100,16 @@ render world = do
 
 eventHook :: EventHandler -> EventHandler
 eventHook eh event =
-      onEventStorage (return . updateEventStorage event)
+      onViewState    (return . updateViewStateWithEvent event)
   >=> eh event
-  >=> onViewState (return . updateViewStateWithEvent event)
+  >=> onEventHistory (return . updateEventHistory       event)
 
-handleEventStep :: (Image -> Image) -> World -> IO World
-handleEventStep imageEvolution world@World{..} = do
+handleEventStep :: (Image -> Image) -> Event -> World -> IO World
+handleEventStep imageEvolution event world@World{..} = do
   oldImage <- readImage world
   onImage (return . imageEvolution) world
 
-  let mousePos = getCurrMousePos wEventStorage
+  let mousePos = getCurrMousePos wEventHistory
       viewPort = viewStateViewPort wViewState
       localMousePos = invertViewPort viewPort mousePos
 
@@ -135,46 +134,48 @@ handleEventStep imageEvolution world@World{..} = do
 
       oldFeedback = wLastFeedback
 
-  let runFeedbackWithEvent feedBack event =
+  let runFeedbackWithEvent feedBack eventInfo =
         case feedBack of
           Just (PF.ExWrap fb) ->
             case Typeable.cast fb of
               Just PF.Feedback{..} -> do
                 flip onImage world $ \image -> do
-                  fbSideEffect event image
-                  return $ fbTransform event image
-              Nothing -> return ()
-          Nothing -> return ()
+                  fbSideEffect eventInfo image
+                  return $ fbTransform eventInfo image
 
-  let selectionSwitch = oldFeedback /= newFeedback
-      event = mkEvent viewPort wEventStorage selectionSwitch
+                return $ fbFocusCapture eventInfo
+              Nothing -> return FocusReleased
+          Nothing -> return FocusReleased
 
+  let focusSwith = oldFeedback /= newFeedback
+      focusOld | focusSwith = FocusLost
+               | otherwise  = FocusStill
+      focusNew | focusSwith = FocusGained
+               | otherwise  = FocusStill
+      mkEventInfo focus = EventInfo { efFocus = focus
+                                    , efEvent = event
+                                    , efEventHistory =
+                                        let toLocal = invertViewPort viewPort
+                                        in  onMousePosBoth toLocal wEventHistory
+                                    }
+
+  captureOld <- runFeedbackWithEvent oldFeedback (mkEventInfo focusOld)
   newFeedback' <-
-    case event of
-      Event.Drag _ -> do
-        runFeedbackWithEvent oldFeedback event
-        return oldFeedback
-      _            -> do
-        runFeedbackWithEvent oldFeedback Event.InverseEvent
-        runFeedbackWithEvent newFeedback event
-        return newFeedback
+    case captureOld of
+         FocusCaptured ->
+           return oldFeedback
+         FocusReleased -> do
+           void $ runFeedbackWithEvent newFeedback (mkEventInfo focusNew)
+           return newFeedback
 
   return $ world { wAnnot = annotPic
                  , wMousePos = Just localMousePos
                  , wLastFeedback = newFeedback'
                  }
 
-mkEvent :: ViewPort -> EventStorage -> Bool -> Event.Event
-mkEvent viewPort eventStorage _
-  | isMousePressed LeftButton eventStorage
-  , let toLocal = invertViewPort viewPort
-  , (toLocal -> newMousePos) <- getCurrMousePos eventStorage
-  = Event.Drag newMousePos
-mkEvent _ _ _ = Event.Event
-
 eventHandler :: EventHandler
-eventHandler (EventMotion _) w = do
-  handleEventStep id w
+eventHandler e@(EventMotion _) w = do
+  handleEventStep id e w
 
 eventHandler (EventKey (Char 'r') Down _mod _pos) w = do
   ServerImage image <- readMVar (wImage w)
@@ -193,7 +194,8 @@ eventHandler _e w = return w
 
 timeEvolution :: Float -> World -> IO World
 timeEvolution secElapsed w = do
-  handleEventStep (evolution secElapsed) w
+  let mousePos = getCurrMousePos $ wEventHistory w
+  handleEventStep (evolution secElapsed) (EventMotion mousePos) w
 
 drawWorld :: World -> IO Picture
 drawWorld World{..} = do
@@ -225,7 +227,7 @@ initWorld = do
     , wAnnot = Nothing
     , wMousePos = Nothing
     , wLastFeedback = Nothing
-    , wEventStorage = initEventStorage
+    , wEventHistory = initEventHistory
     }
   where
     commandConfig = [oTranslate, oRotate, oRestore]

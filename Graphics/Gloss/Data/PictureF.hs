@@ -53,7 +53,7 @@ module Graphics.Gloss.Data.PictureF
 
 import Graphics.Gloss(Path, BitmapData, Color)
 import Graphics.Gloss.Data.Matrix
-import Graphics.Gloss.Data.Event(Event)
+import Graphics.Gloss.Data.EventInfo(EventInfo(..), FocusCapture)
 
 import Data.Foldable(Foldable)
 import Data.Traversable(Traversable)
@@ -99,8 +99,9 @@ instance Eq (ExWrap Feedback) where
   (ExWrap a) == (ExWrap b) = maybe False (==b) $ cast a
 
 data Feedback a = Feedback
-  { fbSideEffect :: Event -> a -> IO ()
-  , fbTransform  :: Event -> a -> a
+  { fbSideEffect :: EventInfo -> a -> IO ()
+  , fbTransform  :: EventInfo -> a -> a
+  , fbFocusCapture :: EventInfo -> FocusCapture
   , fbId         :: FeedbackId
   }
   deriving Typeable
