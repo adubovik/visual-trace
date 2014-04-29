@@ -43,9 +43,6 @@ import Protocol.Graph
 type EventHandler = Event -> World -> IO World
 newtype ServerImage = ServerImage { unServerImage :: Image }
 
-onServerImage :: (Image -> Image) -> ServerImage -> ServerImage
-onServerImage f = ServerImage . f . unServerImage
-
 data World = World
  { wViewState :: ViewState
  , wImage     :: MVar ServerImage
@@ -54,6 +51,15 @@ data World = World
  , wLastFeedback :: Maybe (PF.ExWrap PF.Feedback)
  , wEventStorage :: EventStorage
  }
+
+onServerImage :: Functor m => (Image -> m Image) -> ServerImage -> m ServerImage
+onServerImage f = (ServerImage <$>) . f . unServerImage
+
+readImage :: World -> IO Image
+readImage =  (unServerImage <$>) . readMVar . wImage
+
+onImage :: (Image -> IO Image) -> World -> IO ()
+onImage f w = modifyMVar_ (wImage w) $ onServerImage f
 
 -- TODO: lens
 onViewState :: Monad m => (ViewState -> m ViewState) -> (World -> m World)
@@ -67,11 +73,10 @@ onEventStorage f w = do
   return $ w { wEventStorage = eventStorage' }
 
 handler :: World -> SockAddr -> URL -> Request String -> IO (Response String)
-handler (wImage -> state) _addr _url req = do
+handler world _addr _url req = do
   putStrLn $ "Received: " ++ show (rqBody req)
   let (command :: Command) = read $ rqBody req
-  modifyMVar_ state $ \(ServerImage image) ->
-    return $ ServerImage (action command image)
+  onImage (return . action command) world
   return $ sendText OK ("Server received:\n" ++ show req)
 
 sendText :: StatusCode -> String -> Response String
@@ -100,11 +105,14 @@ eventHook eh event =
   >=> eh event
   >=> onViewState (return . updateViewStateWithEvent event)
 
-handeSelectionWithEvent :: Image -> World -> IO World
-handeSelectionWithEvent oldImage w = do
-  let mousePos = getCurrMousePos (wEventStorage w)
+handleEventStep :: (Image -> Image) -> World -> IO World
+handleEventStep imageEvolution world@World{..} = do
+  oldImage <- readImage world
+  onImage (return . imageEvolution) world
+
+  let mousePos = getCurrMousePos wEventStorage
+      viewPort = viewStateViewPort wViewState
       localMousePos = invertViewPort viewPort mousePos
-      viewPort = viewStateViewPort (wViewState w)
 
       annotPic = drawAnnot annotPos <$>
                  getAnnotation viewPort localMousePos oldImage
@@ -125,22 +133,21 @@ handeSelectionWithEvent oldImage w = do
         Just (PF.unWrap -> PF.SelectionTrigger fb _) -> Just fb
         _ -> Nothing
 
-      oldFeedback = wLastFeedback w
+      oldFeedback = wLastFeedback
 
   let runFeedbackWithEvent feedBack event =
         case feedBack of
           Just (PF.ExWrap fb) ->
-            case (Typeable.cast fb) :: Maybe (PF.Feedback Image) of
+            case Typeable.cast fb of
               Just PF.Feedback{..} -> do
-                modifyMVar_ (wImage w) $ \(ServerImage im) -> do
-                  fbSideEffect event im
-                  return $ ServerImage $ fbTransform event im
+                flip onImage world $ \image -> do
+                  fbSideEffect event image
+                  return $ fbTransform event image
               Nothing -> return ()
           Nothing -> return ()
 
   let selectionSwitch = oldFeedback /= newFeedback
-      event = mkEvent viewPort (wEventStorage w) selectionSwitch
-
+      event = mkEvent viewPort wEventStorage selectionSwitch
 
   newFeedback' <-
     case event of
@@ -152,10 +159,10 @@ handeSelectionWithEvent oldImage w = do
         runFeedbackWithEvent newFeedback event
         return newFeedback
 
-  return $ w { wAnnot = annotPic
-             , wMousePos = Just localMousePos
-             , wLastFeedback = newFeedback'
-             }
+  return $ world { wAnnot = annotPic
+                 , wMousePos = Just localMousePos
+                 , wLastFeedback = newFeedback'
+                 }
 
 mkEvent :: ViewPort -> EventStorage -> Bool -> Event.Event
 mkEvent viewPort eventStorage _
@@ -167,8 +174,7 @@ mkEvent _ _ _ = Event.Event
 
 eventHandler :: EventHandler
 eventHandler (EventMotion _) w = do
-  ServerImage oldImage <- readMVar (wImage w)
-  handeSelectionWithEvent oldImage w
+  handleEventStep id w
 
 eventHandler (EventKey (Char 'r') Down _mod _pos) w = do
   ServerImage image <- readMVar (wImage w)
@@ -187,12 +193,7 @@ eventHandler _e w = return w
 
 timeEvolution :: Float -> World -> IO World
 timeEvolution secElapsed w = do
-  ServerImage oldImage <- readMVar (wImage w)
-
-  modifyMVar_ (wImage w) $
-    return . onServerImage (evolution secElapsed)
-
-  handeSelectionWithEvent oldImage w
+  handleEventStep (evolution secElapsed) w
 
 drawWorld :: World -> IO Picture
 drawWorld World{..} = do
