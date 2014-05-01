@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings  #-}
 
-module Client.ProgressBar where
+module Client.ProgressBar(main) where
 
 import Network.HTTP.Conduit
 import qualified Data.ByteString.Lazy as BS

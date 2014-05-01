@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings  #-}
 
-module Client.Graph where
+module Client.Graph(main) where
 
 import Network.HTTP.Conduit
 import qualified Data.ByteString.Lazy as BS

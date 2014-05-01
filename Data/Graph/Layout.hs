@@ -26,7 +26,7 @@ stdForces = [ logSpring (2,1)
             ]
 
 moveCoeff :: Float
-moveCoeff = 0.1
+moveCoeff = 0.3
 
 _deltaEps :: Float
 _deltaEps = 0.1

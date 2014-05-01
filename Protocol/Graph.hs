@@ -104,13 +104,16 @@ drawAnn Image{..} = pictures $ edgePics ++ nodePics
                                ]
 
         nodeFeedback :: (Node Key, Point) -> Feedback Image
-        nodeFeedback (node, pos) = Feedback
-          { fbSideEffect = \event _image -> putStrLn $ printf "Event %s on %s " (show event) (show (node,pos))
+        nodeFeedback (node,pos) = Feedback
+          { fbSideEffect = sideEffect
           , fbTransform  = transform
           , fbId         = show node
           , fbFocusCapture = stdFocusCapture
           }
           where
+            sideEffect event _image = do
+             putStrLn $ printf "Event %s on %s " (show event) (show (node,pos))
+
             leftButtonDrag eventHistory =
                isMousePressed LeftButton eventHistory &&
               wasMousePressed LeftButton eventHistory
