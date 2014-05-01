@@ -140,8 +140,8 @@ drawAnn Image{..} = pictures $ edgePics ++ nodePics
             dragTransform EventInfo{..} image
               | leftButtonDrag efEventHistory
               , newPos <- getCurrMousePos efEventHistory
+              -- TODO: replace with "+ (newPos - oldPos)"
               = onGraph (adjustNodePos (const newPos) node) image
-
               | otherwise
               = image
 

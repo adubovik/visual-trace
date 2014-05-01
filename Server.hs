@@ -100,9 +100,10 @@ render world = do
 
 eventHook :: EventHandler -> EventHandler
 eventHook eh event =
-      onViewState    (return . updateViewStateWithEvent event)
-  >=> eh event
+      return
   >=> onEventHistory (return . updateEventHistory       event)
+  >=> eh event
+  >=> onViewState    (return . updateViewStateWithEvent event)
 
 handleEventStep :: (Image -> Image) -> Event -> World -> IO World
 handleEventStep imageEvolution event world@World{..} = do
@@ -194,8 +195,15 @@ eventHandler _e w = return w
 
 timeEvolution :: Float -> World -> IO World
 timeEvolution secElapsed w = do
-  let mousePos = getCurrMousePos $ wEventHistory w
-  handleEventStep (evolution secElapsed) (EventMotion mousePos) w
+  let emitFakeEvent world = do
+        world' <- onEventHistory (return . updateEventHistory event) world
+        return (event, world')
+        where
+          mousePos = getCurrMousePos $ wEventHistory world
+          event = EventMotion mousePos
+
+  (event, w') <- emitFakeEvent w
+  handleEventStep (evolution secElapsed) event w'
 
 drawWorld :: World -> IO Picture
 drawWorld World{..} = do
