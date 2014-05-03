@@ -7,13 +7,15 @@ module Graphics.Gloss.Data.PictureF.Trans
  ( toPicture
  , fromPicture
  , eliminateFixedSize
+ , eliminateVHCat
  ) where
 
-import Graphics.Gloss.Data.Matrix
 import Data.Monoid
 import Data.Fix
+import Data.List
 
 import qualified Graphics.Gloss as G
+import Graphics.Gloss.Data.Matrix
 import Graphics.Gloss.Data.ViewPort
 import Graphics.Gloss.Data.PictureF
 import Graphics.Gloss.Data.Ext
@@ -21,7 +23,7 @@ import Graphics.Gloss.Data.Ext.Utils
 
 toPicture :: ViewPort -> Picture -> G.Picture
 toPicture viewPort =
-  cata alg . eliminateFixedSize viewPort
+  cata alg . eliminateVHCat . eliminateFixedSize viewPort
   where
     alg :: PictureF G.Picture -> G.Picture
     alg pic = case pic of
@@ -39,7 +41,9 @@ toPicture viewPort =
       Rotate a b        -> G.Rotate a b
       Scale a b c       -> G.Scale a b c
       Pictures p        -> G.Pictures p
-      FixedSize _ _ _   -> error "toPicture: FixedSize primitive shouldn't appear at this stage."
+      FixedSize{}       -> error "toPicture: FixedSize primitive shouldn't appear at this stage."
+      HCat{}            -> error "toPicture: HCat primitive shouldn't appear at this stage."
+      VCat{}            -> error "toPicture: VCat primitive shouldn't appear at this stage."
       Group _ p         -> p
       Annotate _ p      -> p
       SelectionTrigger _ p -> p
@@ -53,10 +57,43 @@ eliminateFixedSize (viewPortToMatrix -> viewPortMatrix) =
 
     alg :: Matrix -> PictureF Picture -> Picture
     alg m pic = case pic of
+      -- FIXME: get rid of multiple 'getPictureExt' calls
       FixedSize mw mh p -> let ext  = getPictureExt p
                                ext' = applyMatrixToExt m ext
                            in  fixSizeExt mw mh ext' p
-      _ -> Fix . ((),) $ pic
+      _ -> wrap pic
+
+eliminateVHCat :: Picture -> Picture
+eliminateVHCat = cata alg
+  where
+    alg :: PictureF Picture -> Picture
+    alg pic = case pic of
+      VCat padding ps ->
+        pictures $ snd $ mapAccumL (catFolder False padding) mempty ps
+      HCat padding ps ->
+        pictures $ snd $ mapAccumL (catFolder  True padding) mempty ps
+      _ -> wrap pic
+
+    -- FIXME: copy-paste from Graphics.Gloss.Data.Ext.Utils.ext2Alg
+    catFolder isHCat padding extAcc pic
+      | Just ((cx ,cy ),(ex ,ey )) <- getExt extAcc
+      , Just ((cx',cy'),(ex',ey')) <- getExt extPic
+      , let realMinX   = cx' - ex'
+      , let realMinY   = cy' - ey'
+      , let targetMinX = cx + ex + padding
+      , let targetMinY = cy + ey + padding
+      , let transX = targetMinX - realMinX
+      , let transY = targetMinY - realMinY
+      = case isHCat of
+          True  -> ( extAcc <> translateExt transX 0.0 extPic
+                   , translate transX 0.0 pic
+                   )
+          False -> ( extAcc <> translateExt 0.0 transY extPic
+                   , translate 0.0 transY pic
+                   )
+      | otherwise = (extPic, pic)
+      where
+        extPic = getPictureExt pic
 
 fromPicture :: G.Picture -> Picture
 fromPicture = ana coalg

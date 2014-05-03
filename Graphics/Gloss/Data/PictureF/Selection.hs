@@ -57,8 +57,10 @@ evalSelectionInfo :: ViewPort -> Point -> Picture -> PictureS
 evalSelectionInfo viewPort point pic = pic3
   where
     pic0 :: PictureS
-    pic0 = annotateCata (const initSState) $
-           eliminateFixedSize viewPort pic
+    pic0 = annotateCata (const initSState) .
+           eliminateVHCat .
+           eliminateFixedSize viewPort $
+           pic
 
     pic1 :: PictureS
     pic1 = annotateCata extAlg pic0

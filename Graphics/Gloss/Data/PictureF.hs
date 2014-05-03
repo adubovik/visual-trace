@@ -44,6 +44,8 @@ module Graphics.Gloss.Data.PictureF
  , group
  , annotate
  , selectionTrigger
+ , vcat
+ , hcat
 
  -- Misc
  , getMatrix
@@ -88,6 +90,8 @@ data PictureF a
   | Group GroupId a
   | Annotate Annotation a
   | SelectionTrigger (ExWrap Feedback) a
+  | VCat Float [a]
+  | HCat Float [a]
   deriving (Functor, Traversable, Foldable, Eq, Show)
 
 data ExWrap f = forall a. Typeable a => ExWrap { unExWrap :: f a }
@@ -217,3 +221,11 @@ annotate = (wrap.) . Annotate
 
 selectionTrigger :: ExWrap Feedback -> Picture -> Picture
 selectionTrigger = (wrap.) . SelectionTrigger
+
+vcat :: Float -> [Picture] -> Picture
+vcat _ [] = blank
+vcat padding ps = wrap $ VCat padding ps
+
+hcat :: Float -> [Picture] -> Picture
+hcat _ [] = blank
+hcat padding ps = wrap $ HCat padding ps

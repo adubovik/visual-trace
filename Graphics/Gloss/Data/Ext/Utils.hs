@@ -60,7 +60,22 @@ ext2Alg pic = mkWeakExt (getAtomExt pic) <> alg pic
     alg (Group _ p)         = p
     alg (Annotate _ p)      = p
     alg (SelectionTrigger _ p) = p
+    -- Assume no FixedSize primitive in VCat/HCat elements
+    alg (VCat padding ps)   = mkWeakExt $ foldl1 (catFolder False padding) $ map weakExt ps
+    alg (HCat padding ps)   = mkWeakExt $ foldl1 (catFolder  True padding) $ map weakExt ps
     alg _                   = mempty
+
+    catFolder isHCat padding acc ext
+      | Just ((cx ,cy ),(ex ,ey )) <- getExt acc
+      , Just ((cx',cy'),(ex',ey')) <- getExt ext
+      , let realMinX   = cx' - ex'
+      , let realMinY   = cy' - ey'
+      , let targetMinX = cx + ex + padding
+      , let targetMinY = cy + ey + padding
+      = acc <> case isHCat of
+          True  -> translateExt (targetMinX - realMinX) 0.0 ext
+          False -> translateExt 0.0 (targetMinY - realMinY) ext
+      | otherwise = ext
 
 getAtomExt :: PictureF a -> Ext
 getAtomExt Blank                 = mempty
