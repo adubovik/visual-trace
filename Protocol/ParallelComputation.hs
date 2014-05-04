@@ -17,6 +17,7 @@ module Protocol.ParallelComputation
  where
 
 import Data.Monoid
+import Data.Maybe
 import Data.Typeable
 import qualified Data.Map as Map
 
@@ -25,7 +26,7 @@ import qualified Graphics.Gloss as G
 import Graphics.Gloss.Data.PictureF
 import Graphics.Gloss.Data.PictureF.Selection
 import Graphics.Gloss.Data.PictureF.Trans
-import Graphics.Gloss.Data.ColorRead(Color,fromColor)
+import Graphics.Gloss.Data.ColorRead(Color,fromColor,toColor)
 
 -- Identifier of computation node
 -- that processing a workunit.
@@ -55,8 +56,8 @@ instance Monoid Workunit where
   mempty = Wu { wuStatus = (fromColor G.white, Nothing)
               , wuMsgLog = []
               }
-  a `mappend` b = Wu { wuStatus = wuStatus b
-                     , wuMsgLog = wuMsgLog a ++ wuMsgLog b
+  a `mappend` b = Wu { wuStatus = wuStatus a
+                     , wuMsgLog = wuMsgLog b ++ wuMsgLog a
                      }
 
 data Command = Workunit
@@ -92,12 +93,44 @@ action Workunit{..} = onNodeMap modifyNodeMap
 
 drawAnn :: Image -> Picture
 drawAnn Image{..} =
-  vcat 10 $ map (const $
-    hcat 10 $ map (const $
-      insideRect 5 (Just G.yellow) $
-      color G.red $ circle 10)
-    [(0::Int)..10])
-  [(0::Int)..20]
+  rvcat 10 $ map (uncurry drawNode) $ Map.toList nodeMap
+  where
+    drawNode nodeId workunits =
+      insideRect 10 (Just G.white) $
+        rvcat 10 $ [ nodeHeader
+                   , drawTable width height workunits'
+                   ]
+      where
+        (width, height) = let ratio = 2.0
+                          in  findWH ratio (Map.size workunits)
+
+        findWH :: Float -> Int -> (Int,Int)
+        findWH ratio size =
+          let hf = sqrt (fromIntegral size/ratio)
+              h = max 1 (round hf)
+              w = (size + h - 1) `div` h
+          in  (w,h)
+
+        workunits' = map (uncurry drawWorkunit) $ Map.toList workunits
+
+        nodeHeader = insideRect 5 (Just G.red) $
+                     color G.white $ text nodeId
+
+        splitAtChunks _ [] = []
+        splitAtChunks chunkSize ls =
+          let (hd,tl) = splitAt chunkSize ls
+          in  hd : splitAtChunks chunkSize tl
+
+        drawTable w _h cells =
+          let cells' = splitAtChunks w cells
+          in  rvcat 10 $ map (hcat 10) cells'
+
+        drawWorkunit workunitId Wu{..} =
+          let (clr, status) = wuStatus
+          in  annotate (unlines (workunitId:wuMsgLog)) $
+              insideRect 3 (Just $ toColor clr) $
+              color G.white $ text $
+              fromMaybe " " status
 
 evolution :: Float -> Image -> Image
 evolution _secElapsed = id

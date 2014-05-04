@@ -45,6 +45,7 @@ module Graphics.Gloss.Data.PictureF
  , annotate
  , selectionTrigger
  , vcat
+ , rvcat
  , hcat
  , insideRect
 
@@ -227,7 +228,10 @@ selectionTrigger = (wrap.) . SelectionTrigger
 
 vcat :: Float -> [Picture] -> Picture
 vcat _ [] = blank
-vcat padding ps = wrap $ VCat padding ps
+vcat padding ps = wrap $ VCat padding $ ps
+
+rvcat :: Float -> [Picture] -> Picture
+rvcat padding = vcat padding . reverse
 
 hcat :: Float -> [Picture] -> Picture
 hcat _ [] = blank
