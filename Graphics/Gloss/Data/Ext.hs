@@ -11,6 +11,7 @@ module Graphics.Gloss.Data.Ext
  , scaleExt
  , translateExt
  , enlargeExt
+ , enlargeExtAbs
  , getExt
  , pointInExt
  , fixSizeExt
@@ -54,6 +55,13 @@ enlargeExtentF sx sy ext =
       ey = sy*ey'
   in  makeExtentF (cy+ey) (cy-ey) (cx+ex) (cx-ex)
 
+enlargeExtentFAbs :: Float -> Float -> ExtentF -> ExtentF
+enlargeExtentFAbs sx sy ext =
+  let ((cx,cy),(ex',ey')) = getExtentF ext
+      ex = sx + ex'
+      ey = sy + ey'
+  in  makeExtentF (cy+ey) (cy-ey) (cx+ex) (cx-ex)
+
 translateExtentF :: Float -> Float -> ExtentF -> ExtentF
 translateExtentF tx ty (ExtentF a b c d) = ExtentF (ty+a) (ty+b) (tx+c) (tx+d)
 
@@ -91,6 +99,9 @@ translateExt x y = over (translateExtentF x y)
 
 enlargeExt :: Float -> Float -> Ext -> Ext
 enlargeExt x y = over (enlargeExtentF x y)
+
+enlargeExtAbs :: Float -> Float -> Ext -> Ext
+enlargeExtAbs x y = over (enlargeExtentFAbs x y)
 
 getExt :: Ext -> Maybe ((Float,Float), (Float,Float))
 getExt (Ext Nothing) = Nothing

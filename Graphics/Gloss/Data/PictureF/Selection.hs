@@ -58,8 +58,7 @@ evalSelectionInfo viewPort point pic = pic3
   where
     pic0 :: PictureS
     pic0 = annotateCata (const initSState) .
-           eliminateVHCat .
-           eliminateFixedSize viewPort $
+           desugarePicture viewPort $
            pic
 
     pic1 :: PictureS

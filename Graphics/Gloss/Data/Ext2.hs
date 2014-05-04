@@ -12,6 +12,9 @@ module Graphics.Gloss.Data.Ext2
  , mkWeakExt
  , pointInExt2
  , enlargeStrongExt
+
+ , onWeakExt
+ , onStrongExt
  ) where
 
 import Data.Monoid

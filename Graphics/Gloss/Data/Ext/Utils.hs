@@ -63,6 +63,7 @@ ext2Alg pic = mkWeakExt (getAtomExt pic) <> alg pic
     -- Assume no FixedSize primitive in VCat/HCat elements
     alg (VCat padding ps)   = mkWeakExt $ foldl1 (catFolder False padding) $ map weakExt ps
     alg (HCat padding ps)   = mkWeakExt $ foldl1 (catFolder  True padding) $ map weakExt ps
+    alg (InsideRect padding _ p) = onWeakExt (enlargeExtAbs padding padding) p
     alg _                   = mempty
 
     catFolder isHCat padding acc ext

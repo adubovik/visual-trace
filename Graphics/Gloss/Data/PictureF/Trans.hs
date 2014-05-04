@@ -6,13 +6,13 @@
 module Graphics.Gloss.Data.PictureF.Trans
  ( toPicture
  , fromPicture
- , eliminateFixedSize
- , eliminateVHCat
+ , desugarePicture
  ) where
 
 import Data.Monoid
 import Data.Fix
 import Data.List
+import Text.Printf
 
 import qualified Graphics.Gloss as G
 import Graphics.Gloss.Data.Matrix
@@ -21,9 +21,15 @@ import Graphics.Gloss.Data.PictureF
 import Graphics.Gloss.Data.Ext
 import Graphics.Gloss.Data.Ext.Utils
 
+-- TODO: fuse into one morphism
+desugarePicture :: ViewPort -> Picture -> Picture
+desugarePicture viewPort =
+  eliminateInsidePrimitives .
+  eliminateVHCat .
+  eliminateFixedSize viewPort
+
 toPicture :: ViewPort -> Picture -> G.Picture
-toPicture viewPort =
-  cata alg . eliminateVHCat . eliminateFixedSize viewPort
+toPicture viewPort = cata alg . desugarePicture viewPort
   where
     alg :: PictureF G.Picture -> G.Picture
     alg pic = case pic of
@@ -41,12 +47,15 @@ toPicture viewPort =
       Rotate a b        -> G.Rotate a b
       Scale a b c       -> G.Scale a b c
       Pictures p        -> G.Pictures p
-      FixedSize{}       -> error "toPicture: FixedSize primitive shouldn't appear at this stage."
-      HCat{}            -> error "toPicture: HCat primitive shouldn't appear at this stage."
-      VCat{}            -> error "toPicture: VCat primitive shouldn't appear at this stage."
       Group _ p         -> p
       Annotate _ p      -> p
       SelectionTrigger _ p -> p
+      FixedSize{}       -> err "FixedSize"
+      HCat{}            -> err "HCat"
+      VCat{}            -> err "VCat"
+      InsideRect{}      -> err "InsideRect"
+
+    err = error . printf "toPicture: %s primitive shouldn't appear at this stage."
 
 eliminateFixedSize :: ViewPort -> Picture -> Picture
 eliminateFixedSize (viewPortToMatrix -> viewPortMatrix) =
@@ -94,6 +103,21 @@ eliminateVHCat = cata alg
       | otherwise = (extPic, pic)
       where
         extPic = getPictureExt pic
+
+eliminateInsidePrimitives :: Picture -> Picture
+eliminateInsidePrimitives = cata alg
+  where
+    alg :: PictureF Picture -> Picture
+    alg pic = case pic of
+      InsideRect padding clr p ->
+        let ext   = getPictureExt p
+            ext'  = enlargeExtAbs padding padding ext
+            rect  = drawExt ext'
+            rect' = maybe id color clr rect
+        in  pictures [ rect'
+                     , p
+                     ]
+      _ -> wrap pic
 
 fromPicture :: G.Picture -> Picture
 fromPicture = ana coalg

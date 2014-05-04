@@ -25,7 +25,7 @@ import qualified Graphics.Gloss as G
 import Graphics.Gloss.Data.PictureF
 import Graphics.Gloss.Data.PictureF.Selection
 import Graphics.Gloss.Data.PictureF.Trans
-import Graphics.Gloss.Data.ColorRead(Color,toColor,fromColor)
+import Graphics.Gloss.Data.ColorRead(Color,fromColor)
 
 -- Identifier of computation node
 -- that processing a workunit.
@@ -94,6 +94,7 @@ drawAnn :: Image -> Picture
 drawAnn Image{..} =
   vcat 10 $ map (const $
     hcat 10 $ map (const $
+      insideRect 5 (Just G.yellow) $
       color G.red $ circle 10)
     [(0::Int)..10])
   [(0::Int)..20]
