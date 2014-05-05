@@ -123,7 +123,7 @@ handleEventStep imageEvolution event world@World{..} = do
           drawAnnot pos msg =
             PF.color blue $
             uncurry PF.translate pos $
-            let oneLineHeight = Just 30 in
+            let oneLineHeight = Just 20 in
             T.textWithBackground oneLineHeight yellow msg
 
   let selectedPic = fst $

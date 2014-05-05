@@ -8,6 +8,7 @@ module Graphics.Gloss.Data.Ext
  , ExtentF(..)
  , pointExt
  , unitExt
+ , unitExtQ1
  , scaleExt
  , translateExt
  , enlargeExt
@@ -87,6 +88,9 @@ instance Monoid Ext where
 
 unitExt :: Ext
 unitExt = Ext . Just $ makeExtentF 1 (-1) 1 (-1)
+
+unitExtQ1 :: Ext
+unitExtQ1 = Ext . Just $ makeExtentF 1 0 1 0
 
 pointExt :: (Float, Float) -> Ext
 pointExt = Ext . Just . pointExtentF

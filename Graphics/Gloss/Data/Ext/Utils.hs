@@ -88,9 +88,9 @@ getAtomExt (ThickCircle th rad)  = scaleExt (th+rad) (th+rad) unitExt
 getAtomExt (ThickArc _ _ rad th) = scaleExt (th+rad) (th+rad) unitExt
 getAtomExt (Text str)            = let h = textHeight str
                                        w = textWidth str
-                                   in  scaleExt w h unitExt
+                                   in  scaleExt w h unitExtQ1
 getAtomExt (Bitmap w h _ _)      = scaleExt
                                       (fromIntegral w)
                                       (fromIntegral h)
-                                      unitExt
+                                      unitExtQ1
 getAtomExt _                     = mempty

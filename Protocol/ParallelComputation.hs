@@ -21,6 +21,7 @@ import Data.Maybe
 import Data.Typeable
 import qualified Data.Map as Map
 
+import qualified Graphics.Gloss.Text as T
 import Graphics.Gloss.Data.ViewPort
 import qualified Graphics.Gloss as G
 import Graphics.Gloss.Data.PictureF
@@ -114,7 +115,10 @@ drawAnn Image{..} =
         workunits' = map (uncurry drawWorkunit) $ Map.toList workunits
 
         nodeHeader = insideRect 5 (Just G.red) $
-                     color G.white $ text nodeId
+                     color G.white $ text' nodeId
+
+        text' s = let h = T.textHeight s
+                  in scale (50.0/h) (50.0/h) $ T.text s
 
         splitAtChunks _ [] = []
         splitAtChunks chunkSize ls =
@@ -129,7 +133,7 @@ drawAnn Image{..} =
           let (clr, status) = wuStatus
           in  annotate (unlines (workunitId:wuMsgLog)) $
               insideRect 3 (Just $ toColor clr) $
-              color G.white $ text $
+              color G.white $ text' $
               fromMaybe " " status
 
 evolution :: Float -> Image -> Image
