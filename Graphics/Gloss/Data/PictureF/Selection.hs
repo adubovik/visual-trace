@@ -120,7 +120,7 @@ selectWithExt viewPort point = select viewPort point extBorder
     extBorder :: Picture -> Picture
     extBorder pic = let ext2 = getPictureExt2 pic
                     in pictures [ color yellow
-                                $ drawExt2 ext2
+                                $ drawExt2 NoFill ext2
                                 , pic
                                 ]
 

@@ -20,22 +20,26 @@ import Graphics.Gloss.Data.Ext2
 import Graphics.Gloss.Data.PictureF
 import Graphics.Gloss.Text(textWidth, textHeight)
 
-drawExt :: Ext -> Picture
-drawExt (Ext Nothing) = blank
-drawExt (Ext (Just (ExtentF yM ym xM xm))) =
-  line [ (xM, yM)
+drawExt :: Filling -> Ext -> Picture
+drawExt _ (Ext Nothing) = blank
+drawExt filling (Ext (Just (ExtentF yM ym xM xm))) =
+  let prim = case filling of
+        Fill -> polygon
+        NoFill -> line
+  in
+  prim [ (xM, yM)
        , (xM, ym)
        , (xm, ym)
        , (xm, yM)
        , (xM, yM)
        ]
 
-drawExt2 :: Ext2 -> Picture
-drawExt2 Ext2{..} = case height of
-  Nothing -> drawExt weakExt
-  Just h -> pictures [ drawExt weakExt
+drawExt2 :: Filling -> Ext2 -> Picture
+drawExt2 filling Ext2{..} = case height of
+  Nothing -> drawExt filling weakExt
+  Just h -> pictures [ drawExt filling weakExt
                      , fixHeight h $
-                       drawExt strongExt
+                       drawExt filling strongExt
                      ]
   where
     height = do
@@ -63,7 +67,7 @@ ext2Alg pic = mkWeakExt (getAtomExt pic) <> alg pic
     -- Assume no FixedSize primitive in VCat/HCat elements
     alg (VCat padding ps)   = mkWeakExt $ foldl1 (catFolder False padding) $ map weakExt ps
     alg (HCat padding ps)   = mkWeakExt $ foldl1 (catFolder  True padding) $ map weakExt ps
-    alg (InsideRect padding _ p) = onWeakExt (enlargeExtAbs padding padding) p
+    alg (InsideRect _ padding _ p) = onWeakExt (enlargeExtAbs padding padding) p
     alg _                   = mempty
 
     catFolder isHCat padding acc ext

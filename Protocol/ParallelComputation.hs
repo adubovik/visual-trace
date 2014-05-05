@@ -49,16 +49,17 @@ type WorkunitMessage = String
 
 data Workunit = Wu
   { wuStatus :: WorkunitStatus
-  , wuMsgLog :: [WorkunitMessage]
+  -- Including the current status
+  , wuHistory :: [(WorkunitStatus, WorkunitMessage)]
   }
   deriving (Show, Read, Eq, Ord, Typeable)
 
 instance Monoid Workunit where
   mempty = Wu { wuStatus = (fromColor G.white, Nothing)
-              , wuMsgLog = []
+              , wuHistory = []
               }
   a `mappend` b = Wu { wuStatus = wuStatus a
-                     , wuMsgLog = wuMsgLog b ++ wuMsgLog a
+                     , wuHistory = wuHistory b ++ wuHistory a
                      }
 
 data Command = Workunit
@@ -86,7 +87,7 @@ action :: Command -> Image -> Image
 action Workunit{..} = onNodeMap modifyNodeMap
   where
     workunit = Wu { wuStatus = wuSt
-                  , wuMsgLog = [wuMsg]
+                  , wuHistory = [(wuSt, wuMsg)]
                   }
 
     modifyNodeMap = Map.insertWith (Map.unionWith (<>)) wuNodeId
@@ -94,16 +95,27 @@ action Workunit{..} = onNodeMap modifyNodeMap
 
 drawAnn :: Image -> Picture
 drawAnn Image{..} =
-  rvcat 10 $ map (uncurry drawNode) $ Map.toList nodeMap
+  rvcat nodesPadding $ map (uncurry drawNode) $ Map.toList nodeMap
   where
+    nodesPadding = 10
+    nodeRectPadding = 10
+    nodeHeader_BodyPadding = 10
+    nodeIdRectPadding = 5
+    tableWHRatio = 2.0
+    nodeIdTextHeight = 50
+    wuStatusTextHeight = 50
+    wuStatusRectPadding = 3
+    tableVPadding = 10
+    tableHPadding = 10
+
     drawNode nodeId workunits =
-      insideRect 10 (Just G.white) $
-        rvcat 10 $ [ nodeHeader
-                   , drawTable width height workunits'
-                   ]
+      insideRect Fill nodeRectPadding (Just $ G.greyN 0.5) $
+        rvcat nodeHeader_BodyPadding $ [ nodeHeader
+                                       , drawTable width height workunits'
+                                       ]
       where
-        (width, height) = let ratio = 2.0
-                          in  findWH ratio (Map.size workunits)
+        workunits' = map (uncurry drawWorkunit) $ Map.toList workunits
+        (width, height) = findWH tableWHRatio (Map.size workunits)
 
         findWH :: Float -> Int -> (Int,Int)
         findWH ratio size =
@@ -112,13 +124,13 @@ drawAnn Image{..} =
               w = (size + h - 1) `div` h
           in  (w,h)
 
-        workunits' = map (uncurry drawWorkunit) $ Map.toList workunits
+        nodeHeader = insideRect Fill nodeIdRectPadding (Just G.blue) $
+                     text' nodeIdTextHeight nodeId
 
-        nodeHeader = insideRect 5 (Just G.red) $
-                     color G.white $ text' nodeId
-
-        text' s = let h = T.textHeight s
-                  in scale (50.0/h) (50.0/h) $ T.text s
+        text' targetHeight s =
+          let factor = targetHeight/(T.textHeight s)
+          in color G.black $
+             scale factor factor $ T.text s
 
         splitAtChunks _ [] = []
         splitAtChunks chunkSize ls =
@@ -127,13 +139,14 @@ drawAnn Image{..} =
 
         drawTable w _h cells =
           let cells' = splitAtChunks w cells
-          in  rvcat 10 $ map (hcat 10) cells'
+          in  rvcat tableVPadding $
+              map (hcat tableHPadding) cells'
 
         drawWorkunit workunitId Wu{..} =
           let (clr, status) = wuStatus
-          in  annotate (unlines (workunitId:wuMsgLog)) $
-              insideRect 3 (Just $ toColor clr) $
-              color G.white $ text' $
+          in  annotate (unlines $ (workunitId : map show wuHistory)) $
+              insideRect Fill wuStatusRectPadding (Just $ toColor clr) $
+              text' wuStatusTextHeight $
               fromMaybe " " status
 
 evolution :: Float -> Image -> Image

@@ -109,10 +109,10 @@ eliminateInsidePrimitives = cata alg
   where
     alg :: PictureF Picture -> Picture
     alg pic = case pic of
-      InsideRect padding clr p ->
+      InsideRect filling padding clr p ->
         let ext   = getPictureExt p
             ext'  = enlargeExtAbs padding padding ext
-            rect  = drawExt ext'
+            rect  = drawExt filling ext'
             rect' = maybe id color clr rect
         in  pictures [ rect'
                      , p

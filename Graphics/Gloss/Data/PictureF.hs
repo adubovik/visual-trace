@@ -14,6 +14,7 @@
 
 module Graphics.Gloss.Data.PictureF
  ( PictureF(..)
+ , Filling(..)
  , Feedback(..)
  , FeedbackId
  , ExWrap(..)
@@ -71,6 +72,9 @@ type GroupId = Int
 type Annotation = String
 type FeedbackId = String
 
+data Filling = Fill | NoFill
+  deriving (Eq, Show)
+
 data PictureF a
   = Blank
   | Polygon Path
@@ -95,7 +99,7 @@ data PictureF a
   | FixedSize (Maybe Float) (Maybe Float) a
   | VCat Float [a]
   | HCat Float [a]
-  | InsideRect Float (Maybe Color) a
+  | InsideRect Filling Float (Maybe Color) a
   deriving (Functor, Traversable, Foldable, Eq, Show)
 
 data ExWrap f = forall a. Typeable a => ExWrap { unExWrap :: f a }
@@ -237,5 +241,5 @@ hcat :: Float -> [Picture] -> Picture
 hcat _ [] = blank
 hcat padding ps = wrap $ HCat padding ps
 
-insideRect :: Float -> Maybe Color -> Picture -> Picture
-insideRect = ((wrap.).) . InsideRect
+insideRect :: Filling -> Float -> Maybe Color -> Picture -> Picture
+insideRect = (((wrap.).).) . InsideRect
