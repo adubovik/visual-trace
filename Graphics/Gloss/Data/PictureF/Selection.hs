@@ -182,7 +182,6 @@ select viewPort point selectionTrans pic = pic'
 
         isSelectablePic :: PictureF a -> Bool
         isSelectablePic Blank         = True
-        isSelectablePic Polygon{}     = True
         isSelectablePic Circle{}      = True
         isSelectablePic Arc{}         = True
         isSelectablePic ThickCircle{} = True
@@ -192,5 +191,6 @@ select viewPort point selectionTrans pic = pic'
         isSelectablePic Group{}       = True
         isSelectablePic SelectionTrigger{} = True
 
+        isSelectablePic Polygon{}     = False
         isSelectablePic Line{}        = False
         isSelectablePic _             = False

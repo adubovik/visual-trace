@@ -20,10 +20,13 @@ import Data.Monoid
 import Data.Maybe
 import Data.Typeable
 import qualified Data.Map as Map
+import Text.Printf
 
 import qualified Graphics.Gloss.Text as T
 import Graphics.Gloss.Data.ViewPort
 import qualified Graphics.Gloss as G
+import Graphics.Gloss.Data.EventInfo
+import Graphics.Gloss.Data.Point
 import Graphics.Gloss.Data.PictureF
 import Graphics.Gloss.Data.PictureF.Selection
 import Graphics.Gloss.Data.PictureF.Trans
@@ -54,6 +57,13 @@ data Workunit = Wu
   }
   deriving (Show, Read, Eq, Ord, Typeable)
 
+data HighlightedWorkunit = HWu
+  { hwuMousePos :: Point
+  , hwuWuId :: WorkunitId
+  , hwuWu :: Workunit
+  }
+  deriving (Show, Read, Eq, Ord, Typeable)
+
 instance Monoid Workunit where
   mempty = Wu { wuStatus = (fromColor G.white, Nothing)
               , wuHistory = []
@@ -68,10 +78,11 @@ data Command = Workunit
   , wuSt     :: WorkunitStatus
   , wuMsg    :: WorkunitMessage
   }
-  deriving (Show, Read, Eq, Ord)
+   deriving (Show, Read, Eq, Ord)
 
 data Image = Image
   { nodeMap :: Map.Map NodeId Workunits
+  , highlightedWorkunit :: Maybe HighlightedWorkunit
   }
   deriving (Show, Read, Eq, Ord, Typeable)
 
@@ -81,6 +92,7 @@ onNodeMap f im = im { nodeMap = f (nodeMap im) }
 
 mkImage :: Image
 mkImage = Image { nodeMap = Map.empty
+                , highlightedWorkunit = Nothing
                 }
 
 action :: Command -> Image -> Image
@@ -95,26 +107,54 @@ action Workunit{..} = onNodeMap modifyNodeMap
 
 drawAnn :: Image -> Picture
 drawAnn Image{..} =
-  rvcat nodesPadding $ map (uncurry drawNode) $ Map.toList nodeMap
+  pictures
+    [ rvcat nodesPadding $ map (uncurry drawNode) $ Map.toList nodeMap
+    , maybe blank drawHighlightedWorkunit highlightedWorkunit
+    ]
   where
-    nodesPadding = 10
-    nodeRectPadding = 10
+    nodesPadding           = 10
+    nodeRectPadding        = 10
     nodeHeader_BodyPadding = 10
-    nodeIdRectPadding = 5
-    tableWHRatio = 2.0
-    nodeIdTextHeight = 50
-    wuStatusTextHeight = 50
-    wuStatusRectPadding = 3
-    tableVPadding = 10
-    tableHPadding = 10
+    nodeIdRectPadding      = 5
+    tableWHRatio           = 2.0
+    nodeIdTextHeight       = 50
+    wuStatusTextHeight     = 50
+    wuStatusRectPadding    = 3
+    tableVPadding          = 10
+    tableHPadding          = 10
+    annotationFontHeight   = 20
 
+    preprocessStatus :: String -> String
+    preprocessStatus s =
+      let n = 3
+          s' = take n s
+          n' = length s'
+          suffix = replicate (n-n') ' '
+      in s' ++ suffix
+
+    drawHighlightedWorkunit :: HighlightedWorkunit -> Picture
+    drawHighlightedWorkunit HWu{..} =
+        color G.black $
+        uncurry translate annotPos $
+        T.textsWithBackground oneLineHeight textRows
+      where
+        textRows = (G.greyN 0.8, hwuWuId) : map formRow wuHistory
+        formRow ((clr,status), msg) = ( toColor clr
+                                      , fromMaybe "-" status ++ ": " ++ msg
+                                      )
+        oneLineHeight = Just annotationFontHeight
+        -- TODO: + (20,20) in terms of real screen coordinates
+        annotPos = hwuMousePos + (20,20)
+        Wu{..} = hwuWu
+
+    drawNode :: NodeId -> Workunits -> Picture
     drawNode nodeId workunits =
       insideRect Fill nodeRectPadding (Just $ G.greyN 0.5) $
         rvcat nodeHeader_BodyPadding $ [ nodeHeader
                                        , drawTable width height workunits'
                                        ]
       where
-        workunits' = map (uncurry drawWorkunit) $ Map.toList workunits
+        workunits' = map (uncurry $ drawWorkunit nodeId) $ Map.toList workunits
         (width, height) = findWH tableWHRatio (Map.size workunits)
 
         findWH :: Float -> Int -> (Int,Int)
@@ -125,29 +165,75 @@ drawAnn Image{..} =
           in  (w,h)
 
         nodeHeader = insideRect Fill nodeIdRectPadding (Just G.blue) $
-                     text' nodeIdTextHeight nodeId
+                     drawText nodeIdTextHeight nodeId
 
-        text' targetHeight s =
-          let factor = targetHeight/(T.textHeight s)
-          in color G.black $
-             scale factor factor $ T.text s
+    drawText :: Float -> String -> Picture
+    drawText targetHeight s =
+      let factor = targetHeight/(T.textHeight s)
+      in color G.black $
+         scale factor factor $ T.text s
+
+    drawTable :: Int -> Int -> [Picture] -> Picture
+    drawTable w _h cells =
+      rvcat tableVPadding $
+      map (hcat tableHPadding) cells'
+      where
+        cells' = splitAtChunks w cells
 
         splitAtChunks _ [] = []
         splitAtChunks chunkSize ls =
           let (hd,tl) = splitAt chunkSize ls
           in  hd : splitAtChunks chunkSize tl
 
-        drawTable w _h cells =
-          let cells' = splitAtChunks w cells
-          in  rvcat tableVPadding $
-              map (hcat tableHPadding) cells'
+    drawWorkunit :: NodeId -> WorkunitId -> Workunit -> Picture
+    drawWorkunit nodeId workunitId workunit@Wu{..} =
+      selectionTrigger (ExWrap $ wuFeedback nodeId workunitId workunit) $
+      insideRect Fill wuStatusRectPadding (Just $ toColor clr) $
+      drawText wuStatusTextHeight $
+      preprocessStatus $
+      fromMaybe "" status
+      where
+        (clr, status) = wuStatus
 
-        drawWorkunit workunitId Wu{..} =
-          let (clr, status) = wuStatus
-          in  annotate (unlines $ (workunitId : map show wuHistory)) $
-              insideRect Fill wuStatusRectPadding (Just $ toColor clr) $
-              text' wuStatusTextHeight $
-              fromMaybe " " status
+    wuFeedback :: NodeId -> WorkunitId -> Workunit -> Feedback Image
+    wuFeedback nodeId wuId wu = Feedback
+      { fbSideEffect = sideEffect
+      , fbTransform  = transform
+      , fbId         = show (nodeId, wuId)
+      , fbFocusCapture = stdFocusCapture
+      }
+      where
+        sideEffect event _image = do
+         putStrLn $ printf "Event %s on %s " (show event) (show (nodeId, wuId))
+
+        stdFocusCapture EventInfo{..}
+          | FocusStill <- efFocus
+          = FocusCaptured
+          | otherwise
+          = FocusReleased
+
+        transform = highlightTransform
+
+        focusGainedOrStill FocusGained = True
+        focusGainedOrStill FocusStill = True
+        focusGainedOrStill _ = False
+
+        highlightTransform ef@EventInfo{..} image
+          | focusGainedOrStill efFocus
+          , newPos <- getCurrMousePos efEventHistory
+          = image { highlightedWorkunit = Just $ HWu
+                      { hwuMousePos = newPos
+                      , hwuWuId = wuId
+                      , hwuWu = wu
+                      }
+                  }
+
+          | FocusLost <- efFocus
+          , FocusReleased <- stdFocusCapture ef
+          = image { highlightedWorkunit = Nothing }
+
+          | otherwise
+          = image
 
 evolution :: Float -> Image -> Image
 evolution _secElapsed = id

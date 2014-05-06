@@ -1,6 +1,7 @@
 module Graphics.Gloss.Text (
    text
  , textWithBackground
+ , textsWithBackground
 
  , textHeight
  , textWidth
@@ -29,6 +30,10 @@ textHeight = const fontHeight
 textWidth :: String -> Float
 textWidth str = fromIntegral . unsafePerformIO $
                 GLUT.stringWidth GLUT.Roman str
+
+textsWithBackground :: Maybe Float -> [(Color, String)] -> Picture
+textsWithBackground lineHeight rows =
+  rvcat 0 $ map (uncurry $ textWithBackground lineHeight) rows
 
 textWithBackground :: Maybe Float -> Color -> String -> Picture
 textWithBackground lineHeight clr str = let (len, pic) = textMultiLine textOneLine str
