@@ -25,7 +25,7 @@ import Text.Printf
 import qualified Graphics.Gloss.Text as T
 import Graphics.Gloss.Data.ViewPort
 import qualified Graphics.Gloss as G
-import Graphics.Gloss.Data.EventInfo
+import Graphics.Gloss.Data.EventInfo.Utils
 import Graphics.Gloss.Data.Point
 import Graphics.Gloss.Data.PictureF
 import Graphics.Gloss.Data.PictureF.Selection
@@ -200,40 +200,26 @@ drawAnn Image{..} =
       { fbSideEffect = sideEffect
       , fbTransform  = transform
       , fbId         = show (nodeId, wuId)
-      , fbFocusCapture = stdFocusCapture
+      , fbFocusCapture = focusCapture
       }
       where
+        focusCapture = stdFocusCapture
+
         sideEffect event _image = do
          putStrLn $ printf "Event %s on %s " (show event) (show (nodeId, wuId))
 
-        stdFocusCapture EventInfo{..}
-          | FocusStill <- efFocus
-          = FocusCaptured
-          | otherwise
-          = FocusReleased
+        transform = onMouseMove focusCapture highlightWu `andWhen`
+                    onHoverOut focusCapture hoverOff
 
-        transform = highlightTransform
+        highlightWu _oldPos newPos image =
+          image { highlightedWorkunit = Just $ HWu
+                    { hwuMousePos = newPos
+                    , hwuWuId = wuId
+                    , hwuWu = wu
+                    }
+                }
 
-        focusGainedOrStill FocusGained = True
-        focusGainedOrStill FocusStill = True
-        focusGainedOrStill _ = False
-
-        highlightTransform ef@EventInfo{..} image
-          | focusGainedOrStill efFocus
-          , newPos <- getCurrMousePos efEventHistory
-          = image { highlightedWorkunit = Just $ HWu
-                      { hwuMousePos = newPos
-                      , hwuWuId = wuId
-                      , hwuWu = wu
-                      }
-                  }
-
-          | FocusLost <- efFocus
-          , FocusReleased <- stdFocusCapture ef
-          = image { highlightedWorkunit = Nothing }
-
-          | otherwise
-          = image
+        hoverOff image = image { highlightedWorkunit = Nothing }
 
 evolution :: Float -> Image -> Image
 evolution _secElapsed = id

@@ -18,7 +18,6 @@ module Protocol.Graph
 import Data.Graph.Dynamic.Annotated
 import Data.Graph.Layout
 
-import Control.Applicative hiding (empty)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Maybe(fromMaybe)
@@ -26,10 +25,11 @@ import Data.Typeable
 import Text.Printf
 
 import Graphics.Gloss.Interface.Pure.Game(MouseButton(..))
-import Graphics.Gloss.Data.EventInfo
+import Graphics.Gloss.Data.EventInfo.Utils
 import Graphics.Gloss.Data.Point
 import Graphics.Gloss.Data.ViewPort
 import qualified Graphics.Gloss as G
+import qualified Graphics.Gloss.Text as T
 import Graphics.Gloss.Data.PictureF
 import Graphics.Gloss.Data.PictureF.Selection
 import Graphics.Gloss.Data.PictureF.Trans
@@ -44,6 +44,7 @@ type Graph = Graph2D () () Key
 data Image = Image
   { graph2d :: Graph
   , nodeUnderMouse :: Maybe (Node Key)
+  , nodeAnnotation :: Maybe (Point, Node Key)
   }
   deriving (Show, Read, Eq, Ord, Typeable)
 
@@ -53,6 +54,7 @@ onGraph f im = im { graph2d = f (graph2d im) }
 mkImage :: Image
 mkImage = Image { graph2d = empty
                 , nodeUnderMouse = Nothing
+                , nodeAnnotation = Nothing
                 }
 
 action :: Command -> Image -> Image
@@ -61,8 +63,22 @@ action (InsertNode node pos) =
   onGraph $ insertNode (node, Just ((), pos))
 
 drawAnn :: Image -> Picture
-drawAnn Image{..} = pictures $ edgePics ++ nodePics
+drawAnn Image{..} = pictures $
+                      edgePics ++
+                      nodePics ++
+                      [annotationPic nodeAnnotation]
   where
+    annotationPic Nothing = blank
+    annotationPic (Just (mousePos,node)) =
+      color G.black $
+      uncurry translate annotPos $
+      T.textWithBackground oneLineHeight (G.greyN 0.8) $
+      ("Annotation\n" ++ show node)
+      where
+        oneLineHeight = Just 20
+        -- TODO: + (20,20) in terms of real screen coordinates
+        annotPos = mousePos + (20,20)
+
     edgePics :: [Picture]
     edgePics = map drawEdge $ Set.toList edges
       where
@@ -91,7 +107,7 @@ drawAnn Image{..} = pictures $ edgePics ++ nodePics
 
         drawNode (node, pos) = color (nodeColor node) $
                                uncurry translate pos $
-                               annotate ("Annotation\n" ++ show node) $
+                               -- annotate ("Annotation\n" ++ show node) $
                                selectionTrigger (ExWrap $ nodeFeedback (node,pos)) $
                                group node $
                                pictures [
@@ -108,45 +124,32 @@ drawAnn Image{..} = pictures $ edgePics ++ nodePics
           { fbSideEffect = sideEffect
           , fbTransform  = transform
           , fbId         = show node
-          , fbFocusCapture = stdFocusCapture
+          , fbFocusCapture = focusCapture
           }
           where
+            focusCapture = keepFocusedIf (mouseButtonDrag LeftButton)
+
             sideEffect event _image = do
              putStrLn $ printf "Event %s on %s " (show event) (show (node,pos))
 
-            leftButtonDrag eventHistory =
-               isMousePressed LeftButton eventHistory &&
-              wasMousePressed LeftButton eventHistory
+            transform = onHoverIn hoverOn `andWhen`
+                        onHoverOut focusCapture hoverOff `andWhen`
+                        onMouseDrag focusCapture LeftButton moveNode `andWhen`
+                        onMouseMove focusCapture mkAnnotation
 
-            stdFocusCapture EventInfo{..}
-              | FocusLost <- efFocus
-              , leftButtonDrag efEventHistory
-              = FocusCaptured
-              | FocusStill <- efFocus
-              = FocusCaptured
-              | otherwise
-              = FocusReleased
+            mkAnnotation _old newPos image =
+              image { nodeAnnotation =
+                         Just (newPos, node)
+                    }
 
-            transform = (.) <$> highlightTransform <*> dragTransform
+            hoverOn  image = image { nodeUnderMouse = Just node }
+            hoverOff image = image { nodeUnderMouse = Nothing
+                                   , nodeAnnotation = Nothing
+                                   }
 
-            highlightTransform ef@EventInfo{..} image
-              | FocusGained <- efFocus
-              = image { nodeUnderMouse = Just node }
-
-              | FocusLost <- efFocus
-              , FocusReleased <- stdFocusCapture ef
-              = image { nodeUnderMouse = Nothing }
-
-              | otherwise
-              = image
-
-            dragTransform EventInfo{..} image
-              | leftButtonDrag efEventHistory
-              , newPos <- getCurrMousePos efEventHistory
+            moveNode _oldPos newPos =
               -- TODO: replace with "+ (newPos - oldPos)"
-              = onGraph (adjustNodePos (const newPos) node) image
-              | otherwise
-              = image
+              onGraph (adjustNodePos (const newPos) node)
 
 evolution :: Float -> Image -> Image
 evolution _secElapsed = onGraph $ fst . applyForces stdForces
