@@ -37,8 +37,8 @@ import Control.Concurrent
 import Control.Monad
 
 -- import Protocol.ProgressBar
-import Protocol.Graph
--- import Protocol.ParallelComputation
+-- import Protocol.Graph
+import Protocol.ParallelComputation
 
 type EventHandler = Event -> World -> IO World
 newtype ServerImage = ServerImage { unServerImage :: Image }
@@ -72,6 +72,11 @@ onEventHistory f w = do
   eventHistory' <- f (wEventHistory w)
   return $ w { wEventHistory = eventHistory' }
 
+getWindowSize :: IO (Int,Int)
+getWindowSize = do
+  GLUT.Size width height <- GLUT.get GLUT.windowSize
+  return (fromIntegral width, fromIntegral height)
+
 handler :: World -> SockAddr -> URL -> Request String -> IO (Response String)
 handler world _addr _url req = do
   putStrLn $ "Received: " ++ show (rqBody req)
@@ -101,10 +106,20 @@ render world = do
 
 eventHook :: EventHandler -> EventHandler
 eventHook eh event =
-      return
-  >=> onEventHistory (return . updateEventHistory       event)
+      return -- traceHook event
+  >=> onEventHistory (         updateEventHistoryIO     event)
   >=> eh event
   >=> onViewState    (return . updateViewStateWithEvent event)
+  where
+    _traceHook :: Event -> World -> IO World
+    _traceHook e world = do
+      putStrLn $ "Event = " ++ show e
+      return world
+
+updateEventHistoryIO :: Event -> EventHistory -> IO EventHistory
+updateEventHistoryIO event eh = do
+  windowSize <- getWindowSize
+  return $ updateEventHistory windowSize event eh
 
 handleEventStep :: (Image -> Image) -> Event -> World -> IO World
 handleEventStep imageEvolution event world@World{..} = do
@@ -158,7 +173,7 @@ handleEventStep imageEvolution event world@World{..} = do
                                     , efEvent = event
                                     , efEventHistory =
                                         let toLocal = invertViewPort viewPort
-                                        in  onMousePosBoth toLocal wEventHistory
+                                        in  onMousePosHistory toLocal wEventHistory
                                     }
 
   captureOld <- runFeedbackWithEvent oldFeedback (mkEventInfo focusOld)
@@ -184,20 +199,15 @@ eventHandler (EventKey (Char 'r') Down _mod _pos) w = do
   let imageExt = getPictureExt $ drawAnn image
       focusExt = enlargeExt 1.1 1.1 imageExt
 
-  windowSize <- getWindowsSize
+  windowSize <- getWindowSize
   onViewState (return . focusViewState focusExt windowSize) w
-  where
-    getWindowsSize :: IO (Int,Int)
-    getWindowsSize = do
-      GLUT.Size width height <- GLUT.get GLUT.windowSize
-      return (fromIntegral width, fromIntegral height)
 
 eventHandler _e w = return w
 
 timeEvolution :: Float -> World -> IO World
 timeEvolution secElapsed w = do
   let emitFakeEvent world = do
-        world' <- onEventHistory (return . updateEventHistory event) world
+        world' <- onEventHistory (updateEventHistoryIO event) world
         return (event, world')
         where
           mousePos = getCurrMousePos $ wEventHistory world

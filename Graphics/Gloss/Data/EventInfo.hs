@@ -2,22 +2,38 @@ module Graphics.Gloss.Data.EventInfo
  ( Focus(..)
  , EventInfo(..)
  , FocusCapture(..)
+ , Modifier(..)
  , EventHistory
+
  , initEventHistory
  , updateEventHistory
+
  , isMousePressed
  , wasMousePressed
- , getMousePosHistory
+
+ , isKeyPressed
+ , wasKeyPressed
+
+ , isModifierPressed
+ , wasModifierPressed
+
  , getPrevMousePos
  , getCurrMousePos
- , onMousePosBoth
+
+ , onMousePosHistory
  ) where
 
-import Control.Arrow
 import Control.Applicative
 import qualified Data.Set as Set
 
-import Graphics.Gloss.Interface.Pure.Game(Event(..), MouseButton(..), KeyState(..), Key(..), Point)
+import Graphics.Gloss.Interface.Pure.Game
+  ( Point
+  , Event(..)
+  , MouseButton(..)
+  , KeyState(..)
+  , Key(..)
+  , Modifiers(..)
+  )
 
 data Focus = FocusLost
            | FocusStill
@@ -28,6 +44,9 @@ data FocusCapture = FocusCaptured
                   | FocusReleased
   deriving Show
 
+data Modifier = Shift | Ctrl | Alt
+  deriving (Show,Eq,Ord)
+
 data EventInfo = EventInfo
   { efFocus :: Focus
   , efEvent :: Event
@@ -36,89 +55,142 @@ data EventInfo = EventInfo
   deriving Show
 
 data EventStoryPoint = EventStoryPoint
-  { mouseState :: Set.Set MouseButton
-  , mousePos :: Point
+  { mousePos   :: Point
+  , windowSize :: (Int,Int)
+  , modifiers  :: Set.Set Modifier
+  , keys       :: Set.Set Key
   }
   deriving Show
 
-data EventHistory = EventHistory
-  { prevPoint :: EventStoryPoint
-  , currPoint :: EventStoryPoint
-  }
-  deriving Show
+type EventHistory = [EventStoryPoint]
+
+-- EventStoryPoint modifiers
+
+onMousePos :: (Point -> Point) -> (EventStoryPoint -> EventStoryPoint)
+onMousePos f sp = sp { mousePos = f (mousePos sp) }
+
+onWindowSize :: ((Int,Int) -> (Int,Int)) -> (EventStoryPoint -> EventStoryPoint)
+onWindowSize f sp = sp { windowSize = f (windowSize sp) }
+
+onModifiers :: (Set.Set Modifier -> Set.Set Modifier) -> (EventStoryPoint -> EventStoryPoint)
+onModifiers f sp = sp { modifiers = f (modifiers sp) }
+
+onKeys :: (Set.Set Key -> Set.Set Key) -> (EventStoryPoint -> EventStoryPoint)
+onKeys f sp = sp { keys = f (keys sp) }
+
+-- EventStoryPoint elements updaters
+
+updateSet :: Ord a => KeyState -> a -> (Set.Set a -> Set.Set a)
+updateSet Down = Set.insert
+updateSet Up   = Set.delete
+
+updateModifier :: KeyState -> Modifier -> (Set.Set Modifier -> Set.Set Modifier)
+updateModifier = updateSet
+
+updateKey :: KeyState -> Key -> Set.Set Key -> Set.Set Key
+updateKey = updateSet
+
+-- EventHistory modifiers
+
+getPrev, getCurr :: EventHistory -> EventStoryPoint
+getPrev = (!!1)
+getCurr = (!!0)
+
+onCurr :: (EventStoryPoint -> EventStoryPoint) ->
+          (EventHistory -> EventHistory)
+onCurr _ [] = []
+onCurr f (eh:ehs) = f eh : ehs
+
+onAll :: (EventStoryPoint -> EventStoryPoint) ->
+         (EventHistory -> EventHistory)
+onAll = fmap
 
 initEventHistory :: EventHistory
-initEventHistory = EventHistory initPoint initPoint
+initEventHistory = [initPoint,initPoint]
   where
     initPoint = EventStoryPoint
-      { mouseState = Set.empty
-      , mousePos = (100,100)
+      { mousePos = (0,0)
+      , windowSize = (500,500)
+      , modifiers = Set.empty
+      , keys = Set.empty
       }
 
-isMousePressedPoint :: MouseButton -> EventStoryPoint -> Bool
-isMousePressedPoint mb = Set.member mb . mouseState
+-- EventHistory org machinery
+
+copyHistoryPoint :: EventHistory -> EventHistory
+copyHistoryPoint eh = take 2 $ head eh : eh
+
+-- Keys & modifiers getters
+
+isKeyPressedPoint :: Key -> EventStoryPoint -> Bool
+isKeyPressedPoint k = Set.member k . keys
+
+isModifierPressedPoint :: Modifier -> EventStoryPoint -> Bool
+isModifierPressedPoint m = Set.member m . modifiers
+
+isKeyPressed :: Key -> EventHistory -> Bool
+isKeyPressed k = isKeyPressedPoint k . getCurr
+
+wasKeyPressed :: Key -> EventHistory -> Bool
+wasKeyPressed k = isKeyPressedPoint k . getPrev
+
+isModifierPressed :: Modifier -> EventHistory -> Bool
+isModifierPressed m = isModifierPressedPoint m . getCurr
+
+wasModifierPressed :: Modifier -> EventHistory -> Bool
+wasModifierPressed m = isModifierPressedPoint m . getPrev
 
 isMousePressed :: MouseButton -> EventHistory -> Bool
-isMousePressed mb = isMousePressedPoint mb . currPoint
+isMousePressed = isKeyPressed . MouseButton
 
 wasMousePressed :: MouseButton -> EventHistory -> Bool
-wasMousePressed mb = isMousePressedPoint mb . prevPoint
+wasMousePressed = isKeyPressed . MouseButton
 
-getMousePosHistory :: EventHistory -> (Point,Point)
-getMousePosHistory = getPrevMousePos &&& getCurrMousePos
+-- Mouse position
 
 getMousePos :: EventStoryPoint -> Point
 getMousePos = mousePos
 
 getCurrMousePos :: EventHistory -> Point
-getCurrMousePos = getMousePos . currPoint
+getCurrMousePos = getMousePos . getCurr
 
 getPrevMousePos :: EventHistory -> Point
-getPrevMousePos = getMousePos . prevPoint
+getPrevMousePos = getMousePos . getPrev
 
-updateMouseState :: KeyState -> MouseButton ->
-                    Set.Set MouseButton -> Set.Set MouseButton
-updateMouseState Down = Set.insert
-updateMouseState Up   = Set.delete
+-- EventHistory updates
 
-saveCurrHistory :: EventHistory -> EventHistory
-saveCurrHistory es = es { prevPoint = currPoint es }
+updateEventHistory :: (Int,Int) -> Event ->
+                      EventHistory -> EventHistory
+updateEventHistory winSize =
+      updateKeys
+  <.> updateModifiers
+  <.> updateMousePos
+  <.> updateWindowSize
+  <.> (const updateWinSize)
+  <.> (const copyHistoryPoint)
+  where
+    updateWinSize = onCurr $ onWindowSize (const winSize)
+    (<.>) = liftA2 (.)
 
-onMouseState :: (Set.Set MouseButton -> Set.Set MouseButton) ->
-                EventStoryPoint -> EventStoryPoint
-onMouseState f p = p { mouseState = f (mouseState p) }
+updateWindowSize :: Event -> EventHistory -> EventHistory
+updateWindowSize (EventResize winSize) = onCurr $ onWindowSize (const winSize)
+updateWindowSize _ = id
 
-onCurrMouseState :: (Set.Set MouseButton -> Set.Set MouseButton) ->
-                    EventHistory -> EventHistory
-onCurrMouseState f es = es { currPoint = onMouseState f (currPoint es) }
+updateKeys :: Event -> EventHistory -> EventHistory
+updateKeys (EventKey key state _ _) = onCurr $ onKeys (updateKey state key)
+updateKeys _ = id
 
-onMousePos :: (Point -> Point) ->
-              EventStoryPoint -> EventStoryPoint
-onMousePos f p = p { mousePos = f (mousePos p) }
+updateModifiers :: Event -> EventHistory -> EventHistory
+updateModifiers (EventKey _ _ mds _) =
+    onCurr (onModifiers (updateModifier (shift mds) Shift))
+  . onCurr (onModifiers (updateModifier (ctrl  mds) Ctrl ))
+  . onCurr (onModifiers (updateModifier (alt   mds) Alt  ))
+updateModifiers _ = id
 
-onMousePosBoth :: (Point -> Point) -> EventHistory -> EventHistory
-onMousePosBoth = (.) <$> onCurrMousePos <*> onPrevMousePos
+updateMousePos :: Event -> EventHistory -> EventHistory
+updateMousePos (EventKey _ _ _ mousepos) = onCurr $ onMousePos (const mousepos)
+updateMousePos (EventMotion    mousepos) = onCurr $ onMousePos (const mousepos)
+updateMousePos _ = id
 
-onCurrMousePos :: (Point -> Point) ->
-                  EventHistory -> EventHistory
-onCurrMousePos f es = es { currPoint = onMousePos f (currPoint es) }
-
-onPrevMousePos :: (Point -> Point) ->
-                  EventHistory -> EventHistory
-onPrevMousePos f es = es { prevPoint = onMousePos f (prevPoint es) }
-
-updateEventHistory :: Event -> EventHistory -> EventHistory
-updateEventHistory =
-  (.) <$> updateMouseButtonState <*> updateMousePosHistory
-
-updateMouseButtonState :: Event -> EventHistory -> EventHistory
-updateMouseButtonState (EventKey (MouseButton mouseButton) state _ _) =
-  onCurrMouseState (updateMouseState state mouseButton) . saveCurrHistory
-updateMouseButtonState _ = id
-
-updateMousePosHistory :: Event -> EventHistory -> EventHistory
-updateMousePosHistory (EventKey _ _ _ mousepos) =
-  onCurrMousePos (const mousepos) . saveCurrHistory
-updateMousePosHistory (EventMotion mousepos) =
-  onCurrMousePos (const mousepos) . saveCurrHistory
-updateMousePosHistory _ = id
+onMousePosHistory :: (Point -> Point) -> (EventHistory -> EventHistory)
+onMousePosHistory = onAll . onMousePos
