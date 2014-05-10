@@ -24,7 +24,7 @@ import Graphics.Gloss.Data.ViewState.Focus
 import Graphics.Gloss.Data.Ext.Utils
 import qualified Graphics.Gloss.Data.PictureF as PF
 import Graphics.Gloss.Data.PictureF.Selection(selectWithExt, select)
-import Graphics.Gloss.Data.PictureF.Trans(toPicture)
+import Graphics.Gloss.Data.PictureF.Trans(toPicture,desugarePicture)
 import qualified Graphics.Gloss.Text as T
 
 import Data.Monoid
@@ -37,8 +37,8 @@ import Control.Concurrent
 import Control.Monad
 
 -- import Protocol.ProgressBar
--- import Protocol.Graph
-import Protocol.ParallelComputation
+import Protocol.Graph
+-- import Protocol.ParallelComputation
 
 type EventHandler = Event -> World -> IO World
 newtype ServerImage = ServerImage { unServerImage :: Image }
@@ -194,13 +194,15 @@ eventHandler :: EventHandler
 eventHandler e@(EventMotion _) w = do
   handleEventStep id e w
 
-eventHandler (EventKey (Char 'r') Down _mod _pos) w = do
-  ServerImage image <- readMVar (wImage w)
-  let imageExt = getPictureExt $ drawAnn image
+eventHandler (EventKey (Char 'r') Down _mod _pos) w@World{..} = do
+  ServerImage image <- readMVar wImage
+  let imageExt = getPictureExt $ desugarePicture viewPort $ drawAnn image
       focusExt = enlargeExt 1.1 1.1 imageExt
 
   windowSize <- getWindowSize
   onViewState (return . focusViewState focusExt windowSize) w
+  where
+    viewPort = viewStateViewPort wViewState
 
 eventHandler _e w = return w
 
