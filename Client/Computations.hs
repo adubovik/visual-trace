@@ -22,10 +22,10 @@ import Graphics.Gloss.Data.Color
 
 mkCommand :: Int -> Int -> IO [(Int, Command)]
 mkCommand nodeId wuid = do
-  let nodeId' = printf "Node%02d" nodeId
-      wuId' = printf "Wu%02d_%02d" wuid nodeId
+  let nodeId' = printf "Node%03d" nodeId
+      wuId' = printf "Wu%03d_%03d" wuid nodeId
 
-      genRndTime = randomRIO (0,100000)
+      genRndTime = randomRIO (0,1000000)
 
       mkSubCommand ((statusMsg, clr), time) = do
         (time,) $
@@ -52,9 +52,9 @@ mkCommands nodes wusPerNode = do
 sendTree :: IO ()
 sendTree = do
   let sendWithDelay msg = do
-        threadDelay 100000
+        threadDelay 10000
         send msg
-  commands <- mkCommands 4 16
+  commands <- mkCommands 6 100
   mapM_ (sendWithDelay . show) commands
 
 send :: String -> IO ()

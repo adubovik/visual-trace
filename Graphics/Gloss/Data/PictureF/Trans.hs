@@ -9,6 +9,7 @@ module Graphics.Gloss.Data.PictureF.Trans
  , desugarePicture
  ) where
 
+import Control.Applicative
 import Data.Monoid
 import Data.Fix
 import Data.List
@@ -19,6 +20,7 @@ import Graphics.Gloss.Data.Matrix
 import Graphics.Gloss.Data.ViewPort
 import Graphics.Gloss.Data.PictureF
 import Graphics.Gloss.Data.Ext
+import Graphics.Gloss.Data.Ext2
 import Graphics.Gloss.Data.Ext.Utils
 
 -- TODO: fuse into one morphism
@@ -55,36 +57,45 @@ toPicture viewPort = cata alg . desugarePicture viewPort
       VCat{}            -> err "VCat"
       InsideRect{}      -> err "InsideRect"
 
-    err = error . printf "toPicture: %s primitive shouldn't appear at this stage."
+    err = error . printf "toPicture: %s primitive shouldn't \
+                         \appear at this stage."
 
 eliminateFixedSize :: ViewPort -> Picture -> Picture
 eliminateFixedSize (viewPortToMatrix -> viewPortMatrix) =
-  cataCtx iterateMatrix alg viewPortMatrix
+  fst . cataCtx iterateMatrix alg viewPortMatrix
   where
     iterateMatrix :: Matrix -> PictureF () -> Matrix
     iterateMatrix m pic = m <> getMatrix pic
 
-    alg :: Matrix -> PictureF Picture -> Picture
-    alg m pic = case pic of
-      -- FIXME: get rid of multiple 'getPictureExt' calls
-      FixedSize mw mh p -> let ext  = getPictureExt p
-                               ext' = applyMatrixToExt m ext
-                           in  fixSizeExt mw mh ext' p
+    alg :: Matrix -> PictureF (Picture,Ext2) -> (Picture,Ext2)
+    alg m picture = (,ext) $ case picture of
+      FixedSize mw mh (p,e) -> let e' = applyMatrixToExt m $
+                                        flattenExt2 e
+                               in  fixSizeExt mw mh e' p
       _ -> wrap pic
 
+      where
+        pic = fst <$> picture
+        ext = ext2Alg $
+              snd <$> picture
+
 eliminateVHCat :: Picture -> Picture
-eliminateVHCat = cata alg
+eliminateVHCat = fst . cata alg
   where
-    alg :: PictureF Picture -> Picture
-    alg pic = case pic of
+    alg :: PictureF (Picture,Ext2) -> (Picture,Ext2)
+    alg picture = (,ext) $ case picture of
       VCat padding ps ->
         pictures $ snd $ mapAccumL (catFolder False padding) mempty ps
       HCat padding ps ->
         pictures $ snd $ mapAccumL (catFolder  True padding) mempty ps
       _ -> wrap pic
+      where
+        pic = fst <$> picture
+        ext = ext2Alg $
+              snd <$> picture
 
     -- FIXME: copy-paste from Graphics.Gloss.Data.Ext.Utils.ext2Alg
-    catFolder isHCat padding extAcc pic
+    catFolder isHCat padding extAcc (pic, flattenExt2 -> extPic)
       | Just ((cx ,cy ),(ex ,ey )) <- getExt extAcc
       , Just ((cx',cy'),(ex',ey')) <- getExt extPic
       , let realMinX   = cx' - ex'
@@ -101,23 +112,24 @@ eliminateVHCat = cata alg
                    , translate 0.0 transY pic
                    )
       | otherwise = (extPic, pic)
-      where
-        extPic = getPictureExt pic
 
 eliminateInsidePrimitives :: Picture -> Picture
-eliminateInsidePrimitives = cata alg
+eliminateInsidePrimitives = fst . cata alg
   where
-    alg :: PictureF Picture -> Picture
-    alg pic = case pic of
-      InsideRect filling padding clr p ->
-        let ext   = getPictureExt p
-            ext'  = enlargeExtAbs padding padding ext
-            rect  = drawExt filling ext'
+    alg :: PictureF (Picture,Ext2) -> (Picture,Ext2)
+    alg picture = (,ext) $ case picture of
+      InsideRect filling padding clr (p, flattenExt2 -> e) ->
+        let e'    = enlargeExtAbs padding padding e
+            rect  = drawExt filling e'
             rect' = maybe id color clr rect
         in  pictures [ rect'
                      , p
                      ]
       _ -> wrap pic
+     where
+        pic = fst <$> picture
+        ext = ext2Alg $
+              snd <$> picture
 
 fromPicture :: G.Picture -> Picture
 fromPicture = ana coalg
