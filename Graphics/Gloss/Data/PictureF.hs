@@ -21,7 +21,6 @@ module Graphics.Gloss.Data.PictureF
  , Picture
  , PictureA
  , GroupId
- , Annotation
 
  -- Smart constructors
  , blank
@@ -43,7 +42,6 @@ module Graphics.Gloss.Data.PictureF
  , fixHeight
  , fixWidth
  , group
- , annotate
  , selectionTrigger
  , vcat
  , rvcat
@@ -69,7 +67,6 @@ import Data.Function
 import Text.Printf
 
 type GroupId = Int
-type Annotation = String
 type FeedbackId = String
 
 data Filling = Fill | NoFill
@@ -93,7 +90,6 @@ data PictureF a
 
   -- PictureF specific cases
   | Group GroupId a
-  | Annotate Annotation a
   | SelectionTrigger (ExWrap Feedback) a
 
   | FixedSize (Maybe Float) (Maybe Float) a
@@ -223,9 +219,6 @@ fixWidth w = wrap . FixedSize (Just w) Nothing
 
 group :: GroupId -> Picture -> Picture
 group = (wrap.) . Group
-
-annotate :: Annotation -> Picture -> Picture
-annotate = (wrap.) . Annotate
 
 selectionTrigger :: ExWrap Feedback -> Picture -> Picture
 selectionTrigger = (wrap.) . SelectionTrigger

@@ -25,7 +25,6 @@ import Graphics.Gloss.Data.Ext.Utils
 import qualified Graphics.Gloss.Data.PictureF as PF
 import Graphics.Gloss.Data.PictureF.Selection(selectWithExt, select)
 import Graphics.Gloss.Data.PictureF.Trans(toPicture,desugarePicture)
-import qualified Graphics.Gloss.Text as T
 
 import Data.Monoid
 import qualified Data.Map as Map
@@ -37,8 +36,8 @@ import Control.Concurrent
 import Control.Monad
 
 -- import Protocol.ProgressBar
--- import Protocol.Graph
-import Protocol.ParallelComputation
+import Protocol.Graph
+-- import Protocol.ParallelComputation
 
 type EventHandler = Event -> World -> IO World
 newtype ServerImage = ServerImage { unServerImage :: Image }
@@ -46,7 +45,6 @@ newtype ServerImage = ServerImage { unServerImage :: Image }
 data World = World
  { wViewState :: ViewState
  , wImage     :: MVar ServerImage
- , wAnnot     :: Maybe PF.Picture
  , wMousePos  :: Maybe Point
  , wLastFeedback :: Maybe (PF.ExWrap PF.Feedback)
  , wEventHistory :: EventHistory
@@ -130,17 +128,6 @@ handleEventStep imageEvolution event world@World{..} = do
       viewPort = viewStateViewPort wViewState
       localMousePos = invertViewPort viewPort mousePos
 
-      annotPic = drawAnnot annotPos <$>
-                 getAnnotation viewPort localMousePos oldImage
-        where
-          annotPos = invertViewPort viewPort $
-                     mousePos + (15,15)
-          drawAnnot pos msg =
-            PF.color blue $
-            uncurry PF.translate pos $
-            let oneLineHeight = Just 20 in
-            T.textWithBackground oneLineHeight yellow msg
-
   let selectedPic = fst $
                     select viewPort localMousePos id $
                     drawAnn oldImage
@@ -185,8 +172,7 @@ handleEventStep imageEvolution event world@World{..} = do
            void $ runFeedbackWithEvent newFeedback (mkEventInfo focusNew)
            return newFeedback
 
-  return $ world { wAnnot = annotPic
-                 , wMousePos = Just localMousePos
+  return $ world { wMousePos = Just localMousePos
                  , wLastFeedback = newFeedback'
                  }
 
@@ -218,11 +204,13 @@ timeEvolution secElapsed w = do
   (event, w') <- emitFakeEvent w
   handleEventStep (evolution secElapsed) event w'
 
+  -- onImage (return . evolution secElapsed) w
+  -- return w
+
 drawWorld :: World -> IO Picture
 drawWorld World{..} = do
   ServerImage image <- readMVar wImage
-  let annotPic = maybe PF.blank id wAnnot
-      selectImage pic = case wMousePos of
+  let selectImage pic = case wMousePos of
         Nothing       -> pic
         Just mousePos -> snd $ selectWithExt viewPort mousePos pic
 
@@ -231,9 +219,7 @@ drawWorld World{..} = do
   return $
     applyViewPortToPicture viewPort $
       toPicture viewPort $
-        PF.pictures [ picture
-                    , annotPic
-                    ]
+        picture
   where
     viewPort = viewStateViewPort wViewState
 
@@ -245,7 +231,6 @@ initWorld = do
                      Map.fromList commandConfig <>
                      Map.fromList defaultCommandConfig
     , wImage = image
-    , wAnnot = Nothing
     , wMousePos = Nothing
     , wLastFeedback = Nothing
     , wEventHistory = initEventHistory

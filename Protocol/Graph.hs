@@ -11,7 +11,6 @@ module Protocol.Graph
  , action
  , drawAnn
  , draw
- , getAnnotation
  , evolution
  ) where
 
@@ -31,7 +30,6 @@ import Graphics.Gloss.Data.ViewPort
 import qualified Graphics.Gloss as G
 import qualified Graphics.Gloss.Text as T
 import Graphics.Gloss.Data.PictureF
-import Graphics.Gloss.Data.PictureF.Selection
 import Graphics.Gloss.Data.PictureF.Trans
 
 data Command = InsertEdge Key Key
@@ -155,9 +153,6 @@ evolution :: Float -> Image -> Image
 evolution _secElapsed = onGraph $ fst . applyForces stdForces
 
 -- Common logic for all protocols
-
-getAnnotation :: ViewPort -> (Float, Float) -> Image -> Maybe String
-getAnnotation viewPort mousePos = annotationUnderPoint viewPort mousePos . drawAnn
 
 draw :: ViewPort -> Image -> G.Picture
 draw vp = toPicture vp . drawAnn

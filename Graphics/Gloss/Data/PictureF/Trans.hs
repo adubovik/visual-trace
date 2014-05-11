@@ -50,7 +50,6 @@ toPicture viewPort = cata alg . desugarePicture viewPort
       Scale a b c       -> G.Scale a b c
       Pictures p        -> G.Pictures p
       Group _ p         -> p
-      Annotate _ p      -> p
       SelectionTrigger _ p -> p
       FixedSize{}       -> err "FixedSize"
       HCat{}            -> err "HCat"

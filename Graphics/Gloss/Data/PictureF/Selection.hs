@@ -8,8 +8,7 @@
  #-}
 
 module Graphics.Gloss.Data.PictureF.Selection (
-   annotationUnderPoint
- , select
+   select
  , selectWithExt
  ) where
 
@@ -97,22 +96,6 @@ evalSelectionInfo viewPort point pic = pic3
                     isIn = pointInExt weakExt localPoint
                 return isIn
           in oldState { selInExt = inExt }
-
-
-annotationUnderPoint :: ViewPort -> Point  -> Picture -> Maybe Annotation
-annotationUnderPoint viewPort point pic = topAnnotation
-  where
-    topAnnotation :: Maybe Annotation
-    topAnnotation = cataWithAnnotation getAnnAlg $
-                    evalSelectionInfo viewPort point pic
-      where
-        getAnnAlg :: SState -> PictureF (Maybe Annotation) -> Maybe Annotation
-        getAnnAlg currState picture =
-          case selInExt currState of
-            Just True -> case picture of
-              Annotate ann _ -> Just ann
-              _ -> getLast $ Foldable.foldMap Last picture
-            _ -> Nothing
 
 selectWithExt :: ViewPort -> Point -> Picture -> (Maybe Picture, Picture)
 selectWithExt viewPort point = select viewPort point extBorder

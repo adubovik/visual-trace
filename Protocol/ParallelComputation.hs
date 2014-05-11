@@ -11,7 +11,6 @@ module Protocol.ParallelComputation
  , action
  , drawAnn
  , draw
- , getAnnotation
  , evolution
  )
  where
@@ -28,7 +27,6 @@ import qualified Graphics.Gloss as G
 import Graphics.Gloss.Data.EventInfo.Utils
 import Graphics.Gloss.Data.Point
 import Graphics.Gloss.Data.PictureF
-import Graphics.Gloss.Data.PictureF.Selection
 import Graphics.Gloss.Data.PictureF.Trans
 import Graphics.Gloss.Data.ColorRead(Color,fromColor,toColor)
 
@@ -225,9 +223,6 @@ evolution :: Float -> Image -> Image
 evolution _secElapsed = id
 
 -- Common logic for all protocols
-
-getAnnotation :: ViewPort -> (Float, Float) -> Image -> Maybe String
-getAnnotation viewPort mousePos = annotationUnderPoint viewPort mousePos . drawAnn
 
 draw :: ViewPort -> Image -> G.Picture
 draw vp = toPicture vp . drawAnn
