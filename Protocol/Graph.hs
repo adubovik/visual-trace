@@ -21,7 +21,6 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Maybe(fromMaybe)
 import Data.Typeable
-import Text.Printf
 
 import Graphics.Gloss.Interface.Pure.Game(MouseButton(..))
 import Graphics.Gloss.Data.EventInfo.Utils
@@ -31,6 +30,7 @@ import qualified Graphics.Gloss as G
 import qualified Graphics.Gloss.Text as T
 import Graphics.Gloss.Data.PictureF
 import Graphics.Gloss.Data.PictureF.Trans
+import Graphics.Gloss.Data.Feedback
 
 data Command = InsertEdge Key Key
              | InsertNode Key Point
@@ -117,32 +117,26 @@ drawAnn Image{..} = pictures $
                                ]
 
         nodeFeedback :: (Node Key, Point) -> Feedback Image
-        nodeFeedback (node,pos) = Feedback
-          { fbSideEffect = sideEffect
-          , fbTransform  = transform
-          , fbId         = show node
-          , fbFocusCapture = focusCapture
-          }
+        nodeFeedback (node,_pos) =
+          mkFeedback focusCapture feedbackId $
+            mkCompFeedback (traceSideEffect feedbackId) transform
           where
             focusCapture = keepFocusedIf (mouseButtonDrag LeftButton)
+            feedbackId   = show node
 
-            sideEffect event _image = do
-             putStrLn $ printf "Event %s on %s " (show event) (show (node,pos))
-
-            transform = onHoverIn hoverOn `andWhen`
-                        onHoverOut focusCapture hoverOff `andWhen`
-                        onMouseDrag focusCapture LeftButton moveNode `andWhen`
-                        onMouseMove focusCapture mkAnnotation
+            transform =
+              onHoverIn hoverOn `andWhen`
+              onHoverOut hoverOff `andWhen`
+              onMouseDrag LeftButton moveNode `andWhen`
+              onMouseMove mkAnnotation `andWhen`
+              onHoverOut  rmAnnotation
 
             mkAnnotation _old newPos image =
-              image { nodeAnnotation =
-                         Just (newPos, node)
-                    }
+              image { nodeAnnotation = Just (newPos, node) }
+            rmAnnotation image = image { nodeAnnotation = Nothing }
 
             hoverOn  image = image { nodeUnderMouse = Just node }
-            hoverOff image = image { nodeUnderMouse = Nothing
-                                   , nodeAnnotation = Nothing
-                                   }
+            hoverOff image = image { nodeUnderMouse = Nothing   }
 
             moveNode _oldPos newPos =
               -- TODO: replace with "+ (newPos - oldPos)"

@@ -50,8 +50,8 @@ genRndCommand (restNodes, graphNodes) = do
 
 main :: IO ()
 main = do
-  let n = 15
-      m = 50
+  let n = 2 --15
+      m = 2 --50
       initGr = (Set.fromList [0..n-1], Set.empty)
 
       go :: (Set.Set Int, Set.Set Int) -> Int -> IO ()

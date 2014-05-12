@@ -5,11 +5,9 @@
 module Graphics.Gloss.Data.EventInfo.Utils where
 
 import Graphics.Gloss.Interface.Pure.Game(MouseButton(..), Point)
-
 import Graphics.Gloss.Data.EventInfo
 
 import Control.Monad
-import Control.Applicative
 
 (.&&.) :: (a -> Bool) -> (a -> Bool) -> (a -> Bool)
 (.&&.) = liftM2 (&&)
@@ -37,28 +35,35 @@ keepFocusedIf keepFocus EventInfo{..}
   | otherwise
   = FocusReleased
 
-type Transformer a = EventInfo -> (a -> a)
-type TransformOnEvent a = (a -> a) -> Transformer a
+type Transformer a = FocusCapture -> EventInfo -> (a -> a)
+type Trans a = (a -> a) -> Transformer a
 
-onHoverIn :: TransformOnEvent a
-onHoverIn trans EventInfo{..}
+andWhen :: Transformer a -> Transformer a -> Transformer a
+andWhen x y = \a b -> x a b .
+                      y a b
+
+-- Transformers
+
+onHoverIn :: Trans a
+onHoverIn trans _focusCapture EventInfo{..}
   | FocusGained <- efFocus
   = trans
   | otherwise
   = id
 
-onHoverOut :: FocusStrategy -> TransformOnEvent a
-onHoverOut focusCapture trans ef@EventInfo{..}
+onHoverOut :: Trans a
+onHoverOut trans focusCapture EventInfo{..}
   | FocusLost <- efFocus
-  , FocusReleased <- focusCapture ef
+  , FocusReleased <- focusCapture
   = trans
   | otherwise
   = id
 
-onMouseDrag :: FocusStrategy -> MouseButton ->
-               ((Point -> Point -> a -> a) -> Transformer a)
-onMouseDrag focusCapture mouseButton trans ef@EventInfo{..}
-  | FocusCaptured <- focusCapture ef
+onMouseDrag :: MouseButton ->
+               (Point -> Point -> a -> a) ->
+               Transformer a
+onMouseDrag mouseButton trans focusCapture EventInfo{..}
+  | FocusCaptured <- focusCapture
   , mouseButtonDrag mouseButton efEventHistory
   , newPos <- getCurrMousePos efEventHistory
   , oldPos <- getPrevMousePos efEventHistory
@@ -66,18 +71,12 @@ onMouseDrag focusCapture mouseButton trans ef@EventInfo{..}
   | otherwise
   = id
 
-onMouseMove :: FocusStrategy ->
-               ((Point -> Point -> a -> a) -> Transformer a)
-onMouseMove focusCapture trans ef@EventInfo{..}
-  | FocusCaptured <- focusCapture ef
+onMouseMove :: (Point -> Point -> a -> a) ->
+               Transformer a
+onMouseMove trans focusCapture EventInfo{..}
+  | FocusCaptured <- focusCapture
   , newPos <- getCurrMousePos efEventHistory
   , oldPos <- getPrevMousePos efEventHistory
   = trans oldPos newPos
   | otherwise
   = id
-
-andWhen :: Transformer a -> Transformer a -> Transformer a
-andWhen x y = (.) <$> x <*> y
-
-
-

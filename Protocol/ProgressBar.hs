@@ -10,7 +10,6 @@ module Protocol.ProgressBar
  , action
  , drawAnn
  , draw
- , getAnnotation
  , evolution
  ) where
 
@@ -82,9 +81,6 @@ evolution :: Float -> Image -> Image
 evolution = const id
 
 -- Common logic for all protocols
-
-getAnnotation :: ViewPort -> (Float, Float) -> Image -> Maybe String
-getAnnotation viewPort mousePos = annotationUnderPoint viewPort mousePos . drawAnn
 
 draw :: ViewPort -> Image -> G.Picture
 draw vp = toPicture vp . drawAnn

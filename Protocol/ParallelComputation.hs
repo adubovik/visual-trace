@@ -19,7 +19,6 @@ import Data.Monoid
 import Data.Maybe
 import Data.Typeable
 import qualified Data.Map as Map
-import Text.Printf
 
 import qualified Graphics.Gloss.Text as T
 import Graphics.Gloss.Data.ViewPort
@@ -29,6 +28,7 @@ import Graphics.Gloss.Data.Point
 import Graphics.Gloss.Data.PictureF
 import Graphics.Gloss.Data.PictureF.Trans
 import Graphics.Gloss.Data.ColorRead(Color,fromColor,toColor)
+import Graphics.Gloss.Data.Feedback
 
 -- Identifier of computation node
 -- that processing a workunit.
@@ -194,22 +194,16 @@ drawAnn Image{..} =
         (clr, status) = wuStatus
 
     wuFeedback :: NodeId -> WorkunitId -> Workunit -> Feedback Image
-    wuFeedback nodeId wuId wu = Feedback
-      { fbSideEffect = sideEffect
-      , fbTransform  = transform
-      , fbId         = show (nodeId, wuId)
-      , fbFocusCapture = focusCapture
-      }
+    wuFeedback nodeId wuId wu =
+      mkFeedback stdFocusCapture feedbackId $
+        mkCompFeedback (traceSideEffect feedbackId) transform
       where
-        focusCapture = stdFocusCapture
+        feedbackId = show (nodeId, wuId)
 
-        sideEffect event _image = do
-         putStrLn $ printf "Event %s on %s " (show event) (show (nodeId, wuId))
+        transform = onMouseMove mkHighlight `andWhen`
+                    onHoverOut  rmHighlight
 
-        transform = onMouseMove focusCapture highlightWu `andWhen`
-                    onHoverOut focusCapture hoverOff
-
-        highlightWu _oldPos newPos image =
+        mkHighlight _oldPos newPos image =
           image { highlightedWorkunit = Just $ HWu
                     { hwuMousePos = newPos
                     , hwuWuId = wuId
@@ -217,7 +211,7 @@ drawAnn Image{..} =
                     }
                 }
 
-        hoverOff image = image { highlightedWorkunit = Nothing }
+        rmHighlight image = image { highlightedWorkunit = Nothing }
 
 evolution :: Float -> Image -> Image
 evolution _secElapsed = id

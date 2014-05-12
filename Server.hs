@@ -23,6 +23,7 @@ import Graphics.Gloss.Data.ViewState hiding (Command)
 import Graphics.Gloss.Data.ViewState.Focus
 import Graphics.Gloss.Data.Ext.Utils
 import qualified Graphics.Gloss.Data.PictureF as PF
+import Graphics.Gloss.Data.Feedback
 import Graphics.Gloss.Data.PictureF.Selection(selectWithExt, select)
 import Graphics.Gloss.Data.PictureF.Trans(toPicture,desugarePicture)
 
@@ -46,7 +47,7 @@ data World = World
  { wViewState :: ViewState
  , wImage     :: MVar ServerImage
  , wMousePos  :: Maybe Point
- , wLastFeedback :: Maybe (PF.ExWrap PF.Feedback)
+ , wLastFeedback :: Maybe (ExWrap Feedback)
  , wEventHistory :: EventHistory
  }
 
@@ -135,21 +136,16 @@ handleEventStep imageEvolution event world@World{..} = do
       newFeedback = case selectedPic of
         Just (PF.unWrap -> PF.SelectionTrigger fb _) -> Just fb
         _ -> Nothing
-
       oldFeedback = wLastFeedback
 
-  let runFeedbackWithEvent feedBack eventInfo =
-        case feedBack of
-          Just (PF.ExWrap fb) ->
-            case Typeable.cast fb of
-              Just PF.Feedback{..} -> do
-                flip onImage world $ \image -> do
-                  fbSideEffect eventInfo image
-                  return $ fbTransform eventInfo image
-
-                return $ fbFocusCapture eventInfo
-              Nothing -> return FocusReleased
-          Nothing -> return FocusReleased
+  let runFeedbackWithEvent feedBack eventInfo
+        | Just (ExWrap wrapedFeedback) <- feedBack
+        , Just fb <- Typeable.cast wrapedFeedback
+        = do
+            flip onImage world $ runFeedback fb eventInfo
+            return $ getFocusCapture fb eventInfo
+        | otherwise
+        = return FocusReleased
 
   let focusSwith = oldFeedback /= newFeedback
       focusOld | focusSwith = FocusLost

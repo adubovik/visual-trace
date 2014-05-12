@@ -2,24 +2,15 @@
    DeriveFunctor
  , DeriveFoldable
  , DeriveTraversable
- , DeriveDataTypeable
- , TypeOperators
- , NoMonomorphismRestriction
- , ViewPatterns
  , TupleSections
- , ExistentialQuantification
- , FlexibleContexts
- , FlexibleInstances
  #-}
 
 module Graphics.Gloss.Data.PictureF
  ( PictureF(..)
- , Filling(..)
- , Feedback(..)
- , FeedbackId
- , ExWrap(..)
  , Picture
  , PictureA
+
+ , Filling(..)
 
  -- Smart constructors
  , blank
@@ -54,17 +45,12 @@ module Graphics.Gloss.Data.PictureF
 
 import Graphics.Gloss(Path, BitmapData, Color)
 import Graphics.Gloss.Data.Matrix
-import Graphics.Gloss.Data.EventInfo(EventInfo(..), FocusCapture)
+import Graphics.Gloss.Data.Feedback
 
 import Data.Foldable(Foldable)
 import Data.Traversable(Traversable)
 import Data.Fix
 import Data.Monoid
-import Data.Typeable
-import Data.Function
-import Text.Printf
-
-type FeedbackId = String
 
 data Filling = Fill | NoFill
   deriving (Eq, Show)
@@ -98,28 +84,6 @@ data PictureF a
   | HCat Float [a]
   | InsideRect Filling Float (Maybe Color) a
   deriving (Functor, Traversable, Foldable, Eq, Show)
-
-data ExWrap f = forall a. Typeable a => ExWrap { unExWrap :: f a }
-
-instance Show (ExWrap Feedback) where
-  show (ExWrap a) = show a
-
-instance Eq (ExWrap Feedback) where
-  (ExWrap a) == (ExWrap b) = maybe False (==b) $ cast a
-
-data Feedback a = Feedback
-  { fbSideEffect :: EventInfo -> a -> IO ()
-  , fbTransform  :: EventInfo -> a -> a
-  , fbFocusCapture :: EventInfo -> FocusCapture
-  , fbId         :: FeedbackId
-  }
-  deriving Typeable
-
-instance Show (Feedback a) where
-  show fb = printf "Feedback (%s)" (fbId fb)
-
-instance Eq (Feedback a) where
-  (==) = (==) `on` fbId
 
 type PictureA a = Fix a PictureF
 type Picture    = PictureA ()
