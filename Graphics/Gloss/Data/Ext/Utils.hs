@@ -61,7 +61,6 @@ ext2Alg pic = mkWeakExt (getAtomExt pic) <> alg pic
     alg (Pictures ps)       = mconcat ps
     alg (FixedSize mx my p) = fixSizeExt2 mx my p
     alg (Color _ p)         = p
-    alg (Group _ p)         = p
     alg (SelectionTrigger _ p) = p
     -- Assume no FixedSize primitive in VCat/HCat elements
     alg (VCat padding ps)   = mkWeakExt $ foldl1 (catFolder False padding) $ map weakExt ps

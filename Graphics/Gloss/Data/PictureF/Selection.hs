@@ -171,7 +171,6 @@ select viewPort point selectionTrans pic = pic'
         isSelectablePic ThickArc{}    = True
         isSelectablePic Text{}        = True
         isSelectablePic Bitmap{}      = True
-        isSelectablePic Group{}       = True
         isSelectablePic SelectionTrigger{} = True
 
         isSelectablePic Polygon{}     = False

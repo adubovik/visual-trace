@@ -20,7 +20,6 @@ module Graphics.Gloss.Data.PictureF
  , ExWrap(..)
  , Picture
  , PictureA
- , GroupId
 
  -- Smart constructors
  , blank
@@ -41,7 +40,6 @@ module Graphics.Gloss.Data.PictureF
  -- PictureF specific primitives
  , fixHeight
  , fixWidth
- , group
  , selectionTrigger
  , vcat
  , rvcat
@@ -66,13 +64,13 @@ import Data.Typeable
 import Data.Function
 import Text.Printf
 
-type GroupId = Int
 type FeedbackId = String
 
 data Filling = Fill | NoFill
   deriving (Eq, Show)
 
 data PictureF a
+  -- Primitives
   = Blank
   | Polygon Path
   | Line    Path
@@ -83,13 +81,16 @@ data PictureF a
   | Text String
   | Bitmap Int Int BitmapData Bool
   | Color Color a
+
+  -- Transformations
   | Translate Float Float a
   | Rotate Float a
   | Scale Float Float a
+
+  -- Composition
   | Pictures [a]
 
   -- PictureF specific cases
-  | Group GroupId a
   | SelectionTrigger (ExWrap Feedback) a
 
   | FixedSize (Maybe Float) (Maybe Float) a
@@ -216,9 +217,6 @@ fixHeight h = wrap . FixedSize Nothing (Just h)
 -- | Fix absolute width of the picture (in pixels)
 fixWidth :: Float -> Picture -> Picture
 fixWidth w = wrap . FixedSize (Just w) Nothing
-
-group :: GroupId -> Picture -> Picture
-group = (wrap.) . Group
 
 selectionTrigger :: ExWrap Feedback -> Picture -> Picture
 selectionTrigger = (wrap.) . SelectionTrigger

@@ -107,7 +107,6 @@ drawAnn Image{..} = pictures $
                                uncurry translate pos $
                                -- annotate ("Annotation\n" ++ show node) $
                                selectionTrigger (ExWrap $ nodeFeedback (node,pos)) $
-                               group node $
                                pictures [
                                  translate 0 20.0 (circle 5.0) ,
                                  fixWidth 20 $
