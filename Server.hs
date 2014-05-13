@@ -36,8 +36,8 @@ import Control.Concurrent.MVar
 import Control.Concurrent
 import Control.Monad
 
--- import Protocol.ProgressBar
-import Protocol.Graph
+import Protocol.ProgressBar
+-- import Protocol.Graph
 -- import Protocol.ParallelComputation
 
 type EventHandler = Event -> World -> IO World

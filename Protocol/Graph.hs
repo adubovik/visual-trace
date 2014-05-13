@@ -24,10 +24,10 @@ import Data.Typeable
 
 import Graphics.Gloss.Interface.Pure.Game(MouseButton(..))
 import Graphics.Gloss.Data.EventInfo.Utils
+import Graphics.Gloss.Data.EventInfo.StdLib
 import Graphics.Gloss.Data.Point
 import Graphics.Gloss.Data.ViewPort
 import qualified Graphics.Gloss as G
-import qualified Graphics.Gloss.Text as T
 import Graphics.Gloss.Data.PictureF
 import Graphics.Gloss.Data.PictureF.Trans
 import Graphics.Gloss.Data.Feedback
@@ -41,7 +41,7 @@ type Graph = Graph2D () () Key
 
 data Image = Image
   { graph2d :: Graph
-  , nodeUnderMouse :: Maybe (Node Key)
+  , nodeHighlighted :: Maybe (Node Key)
   , nodeAnnotation :: Maybe (Point, Node Key)
   }
   deriving (Show, Read, Eq, Ord, Typeable)
@@ -51,38 +51,29 @@ onGraph f im = im { graph2d = f (graph2d im) }
 
 mkImage :: Image
 mkImage = Image { graph2d = empty
-                , nodeUnderMouse = Nothing
+                , nodeHighlighted = Nothing
                 , nodeAnnotation = Nothing
                 }
 
 action :: Command -> Image -> Image
-action (InsertEdge fr to) = onGraph $ insertEdge ((fr,to),Nothing)
-action (InsertNode node pos) =
-  onGraph $ insertNode (node, Just ((), pos))
+action (InsertEdge fr to)    = onGraph $ insertEdge ((fr,to),Nothing)
+action (InsertNode node pos) = onGraph $ insertNode (node, Just ((), pos))
 
 drawAnn :: Image -> Picture
 drawAnn Image{..} = pictures $
                       edgePics ++
                       nodePics ++
-                      [annotationPic nodeAnnotation]
+                      [annotationPic]
   where
-    annotationPic Nothing = blank
-    annotationPic (Just (mousePos,node)) =
-      color G.black $
-      uncurry translate annotPos $
-      T.textWithBackground oneLineHeight (G.greyN 0.8) $
-      ("Annotation\n" ++ show node)
-      where
-        oneLineHeight = Just 20
-        -- TODO: + (20,20) in terms of real screen coordinates
-        annotPos = mousePos + (20,20)
+    annotationPic = maybe blank annotationDraw nodeAnnotation
+    annotationDraw (mousePos,node) =
+      stdAnnotationDraw mousePos $ show node
 
     edgePics :: [Picture]
     edgePics = map drawEdge $ Set.toList edges
       where
-        findPos node = fromMaybe err $ Map.lookup node nodePoss
-          where
-            err = error $ "drawAnn: Can't find position of " ++ show node
+        findPos node = fromMaybe (findErr node) $ Map.lookup node nodePoss
+        findErr node = error $ "drawAnn: Can't find position of " ++ show node
 
         drawEdge (fr,to) = color G.white $
                            line [ findPos fr
@@ -98,15 +89,14 @@ drawAnn Image{..} = pictures $
     nodePics :: [Picture]
     nodePics = map drawNode $ Map.toList nodePoss
       where
-        nodeColor node | Just node' <- nodeUnderMouse
+        nodeColor node | Just node' <- nodeHighlighted
                        , node == node'
                        = G.red
                        | otherwise = G.green
 
         drawNode (node, pos) = color (nodeColor node) $
                                uncurry translate pos $
-                               -- annotate ("Annotation\n" ++ show node) $
-                               selectionTrigger (ExWrap $ nodeFeedback (node,pos)) $
+                               selectionTrigger (nodeFeedback (node,pos)) $
                                pictures [
                                  translate 0 20.0 (circle 5.0) ,
                                  fixWidth 20 $
@@ -125,18 +115,16 @@ drawAnn Image{..} = pictures $
             feedbackId   = show node
 
             transform =
-              onHoverIn hoverOn `andWhen`
-              onHoverOut hoverOff `andWhen`
-              onMouseDrag LeftButton moveNode `andWhen`
-              onMouseMove mkAnnotation `andWhen`
-              onHoverOut  rmAnnotation
+              stdHighlightTransfrom  hoverOn      hoverOff     `andWhen`
+              stdAnnotationTransform mkAnnotation rmAnnotation `andWhen`
+              onMouseDrag LeftButton moveNode
 
             mkAnnotation _old newPos image =
               image { nodeAnnotation = Just (newPos, node) }
             rmAnnotation image = image { nodeAnnotation = Nothing }
 
-            hoverOn  image = image { nodeUnderMouse = Just node }
-            hoverOff image = image { nodeUnderMouse = Nothing   }
+            hoverOn  image = image { nodeHighlighted = Just node }
+            hoverOff image = image { nodeHighlighted = Nothing   }
 
             moveNode _oldPos newPos =
               -- TODO: replace with "+ (newPos - oldPos)"

@@ -1,5 +1,6 @@
 {-# language
    RecordWildCards
+ , DeriveDataTypeable
  #-}
 
 module Protocol.ProgressBar
@@ -13,13 +14,16 @@ module Protocol.ProgressBar
  , evolution
  ) where
 
+import Data.Typeable(Typeable)
+
 import qualified Graphics.Gloss as G
 import Graphics.Gloss.Data.ViewPort
 import Graphics.Gloss.Data.PictureF
-import Graphics.Gloss.Data.PictureF.Selection
 import Graphics.Gloss.Data.PictureF.Trans
+import Graphics.Gloss.Data.Feedback
 
--- TODO: Split into a few sub-modules, 1. render 2. logic 3. data decl ...
+import Graphics.Gloss.Data.EventInfo.Utils
+import Graphics.Gloss.Data.EventInfo.StdLib
 
 data Command = Init Int
              | Done (Maybe String) Int
@@ -29,8 +33,9 @@ data Image = Image
   { count    :: Int
   , position :: Int
   , annots   :: [Maybe String]
+  , cellAnnotation :: Maybe (G.Point, String)
   }
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Typeable)
 
 ------------------------------------------------------
 -- TODO: make type class which consists of functions below
@@ -39,43 +44,48 @@ mkImage :: Image
 mkImage = Image { count = 0
                 , position = 0
                 , annots = []
+                , cellAnnotation = Nothing
                 }
 
 action :: Command -> Image -> Image
-action (Init c) i = i { count = c
-                      , position = 0
-                      , annots = [] }
+action (Init c)  _i = mkImage { count = c }
 action (Done a c) i = i { position = c + position i
                         , annots = annots i ++ replicate c a
                         }
 
-_drawAnn' :: Image -> Picture
-_drawAnn' Image{..} = pictures clrRects
-  where
-    clrRects = zipWith color colors rects
-    colors = take count $
-             map (\i -> if i < position then G.green else G.red) $
-             [0..]
-    rects = take count $
-            zipWith (\i a -> translate (i*0.3) (-0.2*i) (rect a))
-            [0..] (annots ++ repeat Nothing)
-    rect a = maybe id annotate a $
-             scale 0.95 0.95 $
-             polygon [(0,0),(1,0),(1,1),(0,1)]
-
 drawAnn :: Image -> Picture
-drawAnn Image{..} = pictures clrRects
+drawAnn Image{..} = pictures (clrRects ++ [annotationPic])
   where
+    annotationPic =
+      maybe blank (uncurry stdAnnotationDraw) cellAnnotation
+
+    rectSize = 30.0
+
     clrRects = zipWith color colors rects
     colors = take count $
              map (\i -> if i < position then G.green else G.red) $
              [0..]
+
     rects = take count $
-            zipWith (\i a -> translate (fromIntegral i) 0.0 (rect a))
+            zipWith (\i a -> translate (rectSize * fromIntegral i) 0.0 (rect i a))
             [(0::Integer)..] (annots ++ repeat Nothing)
-    rect a = maybe id annotate a $
-             scale 0.95 0.95 $
-             polygon [(0,0),(1,0),(1,1),(0,1)]
+
+    rect idx ann =
+      maybe id (selectionTrigger . cellFeedback idx) ann $
+      scale (rectSize*0.95) (rectSize*0.95) $
+      polygon [(0,0),(1,0),(1,1),(0,1)]
+
+    cellFeedback idx ann =
+      mkFeedback stdFocusCapture feedbackId $
+        mkCompFeedback (traceSideEffect feedbackId) transform
+      where
+        feedbackId = show idx
+
+        transform = stdAnnotationTransform mkAnnotation rmAnnotation
+
+        mkAnnotation _old newPos image =
+          image { cellAnnotation = Just (newPos, ann) }
+        rmAnnotation image = image { cellAnnotation = Nothing }
 
 evolution :: Float -> Image -> Image
 evolution = const id

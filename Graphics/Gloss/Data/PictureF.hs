@@ -47,6 +47,7 @@ import Graphics.Gloss(Path, BitmapData, Color)
 import Graphics.Gloss.Data.Matrix
 import Graphics.Gloss.Data.Feedback
 
+import Data.Typeable(Typeable)
 import Data.Foldable(Foldable)
 import Data.Traversable(Traversable)
 import Data.Fix
@@ -182,8 +183,8 @@ fixHeight h = wrap . FixedSize Nothing (Just h)
 fixWidth :: Float -> Picture -> Picture
 fixWidth w = wrap . FixedSize (Just w) Nothing
 
-selectionTrigger :: ExWrap Feedback -> Picture -> Picture
-selectionTrigger = (wrap.) . SelectionTrigger
+selectionTrigger :: Typeable a => Feedback a -> Picture -> Picture
+selectionTrigger fb = wrap . SelectionTrigger (ExWrap fb)
 
 vcat :: Float -> [Picture] -> Picture
 vcat _ [] = blank

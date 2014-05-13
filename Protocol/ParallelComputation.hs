@@ -24,6 +24,7 @@ import qualified Graphics.Gloss.Text as T
 import Graphics.Gloss.Data.ViewPort
 import qualified Graphics.Gloss as G
 import Graphics.Gloss.Data.EventInfo.Utils
+import Graphics.Gloss.Data.EventInfo.StdLib
 import Graphics.Gloss.Data.Point
 import Graphics.Gloss.Data.PictureF
 import Graphics.Gloss.Data.PictureF.Trans
@@ -55,10 +56,10 @@ data Workunit = Wu
   }
   deriving (Show, Read, Eq, Ord, Typeable)
 
-data HighlightedWorkunit = HWu
-  { hwuMousePos :: Point
-  , hwuWuId :: WorkunitId
-  , hwuWu :: Workunit
+data AnnotatedWorkunit = AWu
+  { awuMousePos :: Point
+  , awuWuId :: WorkunitId
+  , awuWu :: Workunit
   }
   deriving (Show, Read, Eq, Ord, Typeable)
 
@@ -80,7 +81,7 @@ data Command = Workunit
 
 data Image = Image
   { nodeMap :: Map.Map NodeId Workunits
-  , highlightedWorkunit :: Maybe HighlightedWorkunit
+  , annotatedWorkunit :: Maybe AnnotatedWorkunit
   }
   deriving (Show, Read, Eq, Ord, Typeable)
 
@@ -90,7 +91,7 @@ onNodeMap f im = im { nodeMap = f (nodeMap im) }
 
 mkImage :: Image
 mkImage = Image { nodeMap = Map.empty
-                , highlightedWorkunit = Nothing
+                , annotatedWorkunit = Nothing
                 }
 
 action :: Command -> Image -> Image
@@ -107,7 +108,7 @@ drawAnn :: Image -> Picture
 drawAnn Image{..} =
   pictures
     [ rvcat nodesPadding $ map (uncurry drawNode) $ Map.toList nodeMap
-    , maybe blank drawHighlightedWorkunit highlightedWorkunit
+    , maybe blank drawAnnotatedWorkunit annotatedWorkunit
     ]
   where
     nodesPadding           = 10
@@ -130,20 +131,20 @@ drawAnn Image{..} =
           suffix = replicate (n-n') ' '
       in s' ++ suffix
 
-    drawHighlightedWorkunit :: HighlightedWorkunit -> Picture
-    drawHighlightedWorkunit HWu{..} =
+    drawAnnotatedWorkunit :: AnnotatedWorkunit -> Picture
+    drawAnnotatedWorkunit AWu{..} =
         color G.black $
         uncurry translate annotPos $
         T.textsWithBackground oneLineHeight textRows
       where
-        textRows = (G.greyN 0.8, hwuWuId) : map formRow wuHistory
+        textRows = (G.greyN 0.8, awuWuId) : map formRow wuHistory
         formRow ((clr,status), msg) = ( toColor clr
                                       , fromMaybe "-" status ++ ": " ++ msg
                                       )
         oneLineHeight = Just annotationFontHeight
         -- TODO: + (20,20) in terms of real screen coordinates
-        annotPos = hwuMousePos + (20,20)
-        Wu{..} = hwuWu
+        annotPos = awuMousePos + (20,20)
+        Wu{..} = awuWu
 
     drawNode :: NodeId -> Workunits -> Picture
     drawNode nodeId workunits =
@@ -185,7 +186,7 @@ drawAnn Image{..} =
 
     drawWorkunit :: NodeId -> WorkunitId -> Workunit -> Picture
     drawWorkunit nodeId workunitId workunit@Wu{..} =
-      selectionTrigger (ExWrap $ wuFeedback nodeId workunitId workunit) $
+      selectionTrigger (wuFeedback nodeId workunitId workunit) $
       insideRect Fill wuStatusRectPadding (Just $ toColor clr) $
       drawText wuStatusTextHeight $
       preprocessStatus $
@@ -200,18 +201,17 @@ drawAnn Image{..} =
       where
         feedbackId = show (nodeId, wuId)
 
-        transform = onMouseMove mkHighlight `andWhen`
-                    onHoverOut  rmHighlight
+        transform = stdAnnotationTransform mkAnnotation rmAnnotation
 
-        mkHighlight _oldPos newPos image =
-          image { highlightedWorkunit = Just $ HWu
-                    { hwuMousePos = newPos
-                    , hwuWuId = wuId
-                    , hwuWu = wu
+        mkAnnotation _oldPos newPos image =
+          image { annotatedWorkunit = Just $ AWu
+                    { awuMousePos = newPos
+                    , awuWuId = wuId
+                    , awuWu = wu
                     }
                 }
 
-        rmHighlight image = image { highlightedWorkunit = Nothing }
+        rmAnnotation image = image { annotatedWorkunit = Nothing }
 
 evolution :: Float -> Image -> Image
 evolution _secElapsed = id
@@ -220,4 +220,3 @@ evolution _secElapsed = id
 
 draw :: ViewPort -> Image -> G.Picture
 draw vp = toPicture vp . drawAnn
-
