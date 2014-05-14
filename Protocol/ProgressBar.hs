@@ -15,8 +15,12 @@ module Protocol.ProgressBar
  ) where
 
 import Data.Typeable(Typeable)
+import qualified Data.Map as Map
+import Data.Maybe
+import Text.Printf
 
 import qualified Graphics.Gloss as G
+import Graphics.Gloss.Data.Point
 import Graphics.Gloss.Data.ViewPort
 import Graphics.Gloss.Data.PictureF
 import Graphics.Gloss.Data.PictureF.Trans
@@ -25,66 +29,105 @@ import Graphics.Gloss.Data.Feedback
 import Graphics.Gloss.Data.EventInfo.Utils
 import Graphics.Gloss.Data.EventInfo.StdLib
 
-data Command = Init Int
-             | Done (Maybe String) Int
+data Command = Init ProgressBarId (Maybe Int)
+             | Done ProgressBarId (Maybe String) Int
   deriving (Show, Read, Eq, Ord)
 
 data Image = Image
-  { count    :: Int
-  , position :: Int
-  , annots   :: [Maybe String]
-  , cellAnnotation :: Maybe (G.Point, String)
+  { progressBars   :: Map.Map ProgressBarId ProgressBar
+  , cellAnnotation :: Maybe (Point, String)
   }
   deriving (Eq, Ord, Show, Read, Typeable)
 
-------------------------------------------------------
--- TODO: make type class which consists of functions below
+type ProgressBarId = String
+
+data ProgressBar = ProgressBar
+  { count    :: Maybe Int
+  , position :: Int
+  , annots   :: [Maybe String]
+  }
+  deriving (Eq, Ord, Show, Read)
+
+initProgressBar :: ProgressBar
+initProgressBar = ProgressBar
+  { count = Nothing
+  , position = 0
+  , annots = []
+  }
 
 mkImage :: Image
-mkImage = Image { count = 0
-                , position = 0
-                , annots = []
+mkImage = Image { progressBars = Map.empty
                 , cellAnnotation = Nothing
                 }
 
 action :: Command -> Image -> Image
-action (Init c)  _i = mkImage { count = c }
-action (Done a c) i = i { position = c + position i
-                        , annots = annots i ++ replicate c a
-                        }
+action (Init pid len) i =
+  let pb = initProgressBar { count = len }
+  in  i { progressBars = Map.insert pid pb $ progressBars i }
+
+action (Done pid ann done) i =
+  i { progressBars = Map.adjust (progress ann done) pid $ progressBars i }
+  where
+    progress a d pb =
+      pb { position = d + position pb
+         , annots = annots pb ++ replicate d a
+         }
 
 drawAnn :: Image -> Picture
-drawAnn Image{..} = pictures (clrRects ++ [annotationPic])
+drawAnn Image{..} = pictures $ [ progressBarPics
+                               , annotationPic
+                               ]
   where
+    progressBarPics =
+      rvcat padding $
+      map (uncurry drawProgressBar) $
+      Map.toList progressBars
+
     annotationPic =
       maybe blank (uncurry stdAnnotationDraw) cellAnnotation
 
-    rectSize = 30.0
+    drawProgressBar _pid ProgressBar{..}
+      | annots == []
+      , count == Nothing
+      = color G.red drawContour
 
-    clrRects = zipWith color colors rects
-    colors = take count $
-             map (\i -> if i < position then G.green else G.red) $
-             [0..]
+    drawProgressBar pid ProgressBar{..} = hcat padding clrRects
+      where
+        nRects = fromMaybe (length annots) count
+        clrRects = take nRects $
+                   zipWith color colors rects
 
-    rects = take count $
-            zipWith (\i a -> translate (rectSize * fromIntegral i) 0.0 (rect i a))
-            [(0::Integer)..] (annots ++ repeat Nothing)
+        colors = map (\idx -> if idx < position
+                              then G.green
+                              else G.red
+                     ) [0..]
 
-    rect idx ann =
-      maybe id (selectionTrigger . cellFeedback idx) ann $
-      scale (rectSize*0.95) (rectSize*0.95) $
+        rects = zipWith (drawCell pid)
+                  [(0::Integer)..]
+                  (annots ++ repeat Nothing)
+
+    drawCell pid idx ann =
+      maybe id (selectionTrigger . cellFeedback pid idx) ann $
+      scale cellSize cellSize $
       polygon [(0,0),(1,0),(1,1),(0,1)]
 
-    cellFeedback idx ann =
+    drawContour =
+      scale cellSize cellSize $
+      line [(0,0),(1,0),(1,1),(0,1),(0,0)]
+
+    padding = cellSize/15.0
+    cellSize = 30.0
+
+    cellFeedback pid idx ann =
       mkFeedback stdFocusCapture feedbackId $
         mkCompFeedback (traceSideEffect feedbackId) transform
       where
-        feedbackId = show idx
+        feedbackId = printf "%s_%d" pid idx
 
         transform = stdAnnotationTransform mkAnnotation rmAnnotation
 
         mkAnnotation _old newPos image =
-          image { cellAnnotation = Just (newPos, ann) }
+          image { cellAnnotation = Just (newPos, pid ++ ": " ++ ann) }
         rmAnnotation image = image { cellAnnotation = Nothing }
 
 evolution :: Float -> Image -> Image
