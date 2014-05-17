@@ -31,36 +31,38 @@ textWidth :: String -> Float
 textWidth str = fromIntegral . unsafePerformIO $
                 GLUT.stringWidth GLUT.Roman str
 
-textsWithBackground :: Maybe Float -> [(Color, String)] -> Picture
+textsWithBackground :: Maybe Float -> [(Color, String)] -> PictureG
 textsWithBackground lineHeight rows =
-  rvcat 0 $ map (uncurry $ textWithBackground lineHeight) rows
+  rvcat (local 0) $
+    map (uncurry $ textWithBackground lineHeight) rows
 
-textWithBackground :: Maybe Float -> Color -> String -> Picture
-textWithBackground lineHeight clr str = let (len, pic) = textMultiLine textOneLine str
-                                        in  fxHeight len lineHeight pic
+textWithBackground :: Maybe Float -> Color -> String -> PictureG
+textWithBackground lineHeight clr str = let (_len, pic) = textMultiLine textOneLine str
+                                        in  fxHeight lineHeight pic
   where
-    fxHeight _Lines Nothing  = id
-    fxHeight nLines (Just h) = fixHeight (fromIntegral nLines * h)
+    fxHeight Nothing  = id
+    fxHeight (Just h) = scale' (screen (h / height))
 
-    textOneLine msg =
+    width  = textWidth str
+    height = textHeight str
+
+    textOneLine msg = toPictureG $
       pictures [ color clr $
                    polygon [ (0,0)
                            , (width,0)
                            , (width,height)
                            , (0,height)
                            ]
-               , PF.text msg
+               , PF.text (0,0) msg
                ]
-      where
-        width  = textWidth str
-        height = textHeight str
 
-text :: String -> Picture
-text = snd . textMultiLine PF.text
+text :: String -> PictureG
+text = snd . textMultiLine (PF.text (local 0, local 0))
 
-textMultiLine :: (String -> Picture) -> String -> (Int, Picture)
+textMultiLine :: (String -> PictureG) -> String -> (Int, PictureG)
 textMultiLine textOneLine =
   (length &&& (pictures . zipWith textWithOffset [0..])) . lines
   where
     textWithOffset idx str =
-      translate 0.0 (-idx*fontHeight) $ textOneLine str
+      translate (local 0.0) (local (-idx*fontHeight)) $
+        textOneLine str

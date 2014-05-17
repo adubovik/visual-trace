@@ -1,6 +1,7 @@
 {-# language
    ViewPatterns
  , TupleSections
+ , RecordWildCards
  #-}
 
 module Graphics.Gloss.Data.PictureF.Trans
@@ -9,6 +10,7 @@ module Graphics.Gloss.Data.PictureF.Trans
  , desugarePicture
  ) where
 
+import Control.Arrow
 import Control.Applicative
 import Data.Monoid
 import Data.Fix
@@ -16,71 +18,88 @@ import Data.List
 import Text.Printf
 
 import qualified Graphics.Gloss as G
-import Graphics.Gloss.Data.Matrix
 import Graphics.Gloss.Data.ViewPort
 import Graphics.Gloss.Data.PictureF
+
 import Graphics.Gloss.Data.Ext
-import Graphics.Gloss.Data.Ext2
 import Graphics.Gloss.Data.Ext.Utils
 
--- TODO: fuse into one morphism
-desugarePicture :: ViewPort -> Picture -> Picture
-desugarePicture viewPort =
-  eliminateInsidePrimitives .
-  eliminateVHCat .
-  eliminateFixedSize viewPort
+expandScreenCoordinates :: ViewPort -> PictureG -> PictureL
+expandScreenCoordinates ViewPort{..} =
+  cata alg
+  where
+    alg :: PictureFG PictureL -> PictureL
+    alg picture =
+      wrap $ expandGFloat viewPortTranslate viewPortScale picture
 
-toPicture :: ViewPort -> Picture -> G.Picture
+    expandGFloat :: G.Point -> Float -> PictureFG a -> PictureFL a
+    expandGFloat (transX,transY) scaleXY pic = case pic of
+      Blank        -> Blank
+      Line f ps    -> Line f $ map transPoint ps
+      Arc t as pos rad -> Arc t as (transPoint pos) (transCoord rad)
+      Text pos s   -> Text (transPoint pos) s
+
+      Translate x y p -> Translate (transCoord x) (transCoord y) p
+      Scale     x y p -> Scale     (transCoord x) (transCoord y) p
+      Color       c p -> Color c p
+
+      Pictures ps -> Pictures ps
+
+      SelectionTrigger fp p -> SelectionTrigger fp p
+      InsideRect padding f c p -> InsideRect (transCoord padding) f c p
+      VCat padding ps -> VCat (transCoord padding) ps
+      HCat padding ps -> HCat (transCoord padding) ps
+
+      where
+        sc    = (/scaleXY)
+        scTrX = (+transX) . (/scaleXY)
+        scTrY = (+transY) . (/scaleXY)
+
+        transCoord = onG sc
+        transPoint = onG scTrX *** onG scTrY
+
+        onG :: (Float -> Float) -> GFloat -> Float
+        onG g (Screen f) = g f
+        onG _ (Local  f) = f
+
+-- TODO: fuse into one morphism
+desugarePicture :: ViewPort -> PictureG -> PictureL
+desugarePicture viewPort =
+  expandInsidePrimitives .
+  expandVHCat .
+  expandScreenCoordinates viewPort
+
+toPicture :: ViewPort -> PictureG -> G.Picture
 toPicture viewPort = cata alg . desugarePicture viewPort
   where
-    alg :: PictureF G.Picture -> G.Picture
+    alg :: PictureFL G.Picture -> G.Picture
     alg pic = case pic of
       Blank             -> G.Blank
-      Polygon p         -> G.Polygon p
-      Line p            -> G.Line p
-      Circle a          -> G.Circle a
-      ThickCircle a b   -> G.ThickCircle a b
-      Arc a b c         -> G.Arc a b c
-      ThickArc a b c d  -> G.ThickArc a b c d
-      Text s            -> G.Text s
-      Bitmap a b c d    -> G.Bitmap a b c d
+      Line Fill   p     -> G.Polygon p
+      Line NoFill p     -> G.Line p
+      Arc  Nothing        Nothing pos r -> translateTo pos $ G.Circle r
+      Arc (Just t)        Nothing pos r -> translateTo pos $ G.ThickCircle t r
+      Arc  Nothing (Just (a1,a2)) pos r -> translateTo pos $ G.Arc a1 a2 r
+      Arc (Just t) (Just (a1,a2)) pos r -> translateTo pos $ G.ThickArc a1 a2 r t
+      Text pos s                        -> translateTo pos $ G.Text s
       Color c a         -> G.Color c a
       Translate a b c   -> G.Translate a b c
-      Rotate a b        -> G.Rotate a b
       Scale a b c       -> G.Scale a b c
       Pictures p        -> G.Pictures p
       SelectionTrigger _ p -> p
-      FixedSize{}       -> err "FixedSize"
       HCat{}            -> err "HCat"
       VCat{}            -> err "VCat"
       InsideRect{}      -> err "InsideRect"
 
+    translateTo (x,y) = G.Translate x y
+
     err = error . printf "toPicture: %s primitive shouldn't \
                          \appear at this stage."
 
-eliminateFixedSize :: ViewPort -> Picture -> Picture
-eliminateFixedSize (viewPortToMatrix -> viewPortMatrix) =
-  fst . cataCtx iterateMatrix alg viewPortMatrix
+expandVHCat :: PictureL -> PictureL
+expandVHCat = fst . cata alg
   where
-    iterateMatrix :: Matrix -> PictureF () -> Matrix
-    iterateMatrix m pic = m <> getMatrix pic
-
-    alg :: Matrix -> PictureF (Picture,Ext2) -> (Picture,Ext2)
-    alg m picture = (,ext) $ case picture of
-      FixedSize mw mh (p,e) -> let e' = applyMatrixToExt m $
-                                        flattenExt2 e
-                               in  fixSizeExt mw mh e' p
-      _ -> wrap pic
-
-      where
-        pic = fst <$> picture
-        ext = ext2Alg $
-              snd <$> picture
-
-eliminateVHCat :: Picture -> Picture
-eliminateVHCat = fst . cata alg
-  where
-    alg :: PictureF (Picture,Ext2) -> (Picture,Ext2)
+    alg :: PictureFL (PictureL,Ext) -> (PictureL,Ext)
     alg picture = (,ext) $ case picture of
       VCat padding ps ->
         pictures $ snd $ mapAccumL (catFolder False padding) mempty ps
@@ -89,11 +108,11 @@ eliminateVHCat = fst . cata alg
       _ -> wrap pic
       where
         pic = fst <$> picture
-        ext = ext2Alg $
+        ext = extAlg $
               snd <$> picture
 
     -- FIXME: copy-paste from Graphics.Gloss.Data.Ext.Utils.ext2Alg
-    catFolder isHCat padding extAcc (pic, flattenExt2 -> extPic)
+    catFolder isHCat padding extAcc (pic, extPic)
       | Just ((cx ,cy ),(ex ,ey )) <- getExt extAcc
       , Just ((cx',cy'),(ex',ey')) <- getExt extPic
       , let realMinX   = cx' - ex'
@@ -111,39 +130,37 @@ eliminateVHCat = fst . cata alg
                    )
       | otherwise = (extPic, pic)
 
-eliminateInsidePrimitives :: Picture -> Picture
-eliminateInsidePrimitives = fst . cata alg
+expandInsidePrimitives :: PictureL -> PictureL
+expandInsidePrimitives = fst . cata alg
   where
-    alg :: PictureF (Picture,Ext2) -> (Picture,Ext2)
+    alg :: PictureFL (PictureL,Ext) -> (PictureL,Ext)
     alg picture = (,ext) $ case picture of
-      InsideRect filling padding clr (p, flattenExt2 -> e) ->
+      InsideRect padding filling clr (p, e) ->
         let e'    = enlargeExtAbs padding padding e
             rect  = drawExt filling e'
             rect' = maybe id color clr rect
-        in  pictures [ rect'
-                     , p
-                     ]
+        in  pictures [rect', p]
       _ -> wrap pic
      where
         pic = fst <$> picture
-        ext = ext2Alg $
+        ext = extAlg $
               snd <$> picture
 
-fromPicture :: G.Picture -> Picture
+fromPicture :: G.Picture -> PictureL
 fromPicture = ana coalg
   where
     coalg pic = case pic of
       G.Blank            -> Blank
-      G.Polygon p        -> Polygon p
-      G.Line p           -> Line p
-      G.Circle a         -> Circle a
-      G.ThickCircle a b  -> ThickCircle a b
-      G.Arc a b c        -> Arc a b c
-      G.ThickArc a b c d -> ThickArc a b c d
-      G.Text s           -> Text s
-      G.Bitmap a b c d   -> Bitmap a b c d
+      G.Polygon p        -> Line Fill   p
+      G.Line p           -> Line NoFill p
+      G.Circle a         -> Arc  Nothing      Nothing (0,0) a
+      G.ThickCircle a b  -> Arc (Just a)      Nothing (0,0) b
+      G.Arc a b c        -> Arc  Nothing (Just (a,b)) (0,0) c
+      G.ThickArc a b c d -> Arc (Just c) (Just (a,b)) (0,0) d
+      G.Text s           -> Text (0,0) s
+      G.Bitmap{}         -> error "fromPicture: Bitmap isn't supported."
       G.Color c a        -> Color c a
       G.Translate a b c  -> Translate a b c
-      G.Rotate a b       -> Rotate a b
+      G.Rotate{}         -> error "fromPicture: Rotate isn't supported."
       G.Scale a b c      -> Scale a b c
       G.Pictures p       -> Pictures p

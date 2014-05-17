@@ -59,7 +59,7 @@ action :: Command -> Image -> Image
 action (InsertEdge fr to)    = onGraph $ insertEdge ((fr,to),Nothing)
 action (InsertNode node pos) = onGraph $ insertNode (node, Just ((), pos))
 
-drawAnn :: Image -> Picture
+drawAnn :: Image -> PictureG
 drawAnn Image{..} = pictures $
                       edgePics ++
                       nodePics ++
@@ -69,13 +69,14 @@ drawAnn Image{..} = pictures $
     annotationDraw (mousePos,node) =
       stdAnnotationDraw mousePos $ show node
 
-    edgePics :: [Picture]
+    edgePics :: [PictureG]
     edgePics = map drawEdge $ Set.toList edges
       where
         findPos node = fromMaybe (findErr node) $ Map.lookup node nodePoss
         findErr node = error $ "drawAnn: Can't find position of " ++ show node
 
         drawEdge (fr,to) = color G.white $
+                           toPictureG $
                            line [ findPos fr
                                 , findPos to
                                 ]
@@ -86,7 +87,7 @@ drawAnn Image{..} = pictures $
     nodePoss :: Map.Map (Node Key) Point
     nodePoss = Map.map snd $ getNodeAnnotations graph2d
 
-    nodePics :: [Picture]
+    nodePics :: [PictureG]
     nodePics = map drawNode $ Map.toList nodePoss
       where
         nodeColor node | Just node' <- nodeHighlighted
@@ -95,15 +96,18 @@ drawAnn Image{..} = pictures $
                        | otherwise = G.green
 
         drawNode (node, pos) = color (nodeColor node) $
-                               uncurry translate pos $
+                               uncurry translate (toLocalPoint pos) $
                                selectionTrigger (nodeFeedback (node,pos)) $
                                pictures [
-                                 translate 0 20.0 (circle 5.0) ,
-                                 fixWidth 20 $
-                                 pictures $
-                                 [ circle 20.0
-                                 , circle 10.0
-                                 ]
+                                 toPictureG $
+                                   translate 0 20.0 $
+                                     circle (0,0) 5.0 ,
+                                 scale' (screen 1.0) $
+                                   toPictureG $
+                                     pictures $
+                                       [ circle (0,0) 10.0
+                                       , circle (0,0) 5.0
+                                       ]
                                ]
 
         nodeFeedback :: (Node Key, Point) -> Feedback Image

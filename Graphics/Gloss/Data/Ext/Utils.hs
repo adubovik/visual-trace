@@ -5,10 +5,8 @@
 
 module Graphics.Gloss.Data.Ext.Utils (
    getPictureExt
- , getPictureExt2
  , getAtomExt
- , ext2Alg
- , drawExt2
+ , extAlg
  , drawExt
  ) where
 
@@ -16,15 +14,14 @@ import Data.Monoid
 
 import Data.Fix
 import Graphics.Gloss.Data.Ext
-import Graphics.Gloss.Data.Ext2
 import Graphics.Gloss.Data.PictureF
 import Graphics.Gloss.Text(textWidth, textHeight)
 
-drawExt :: Filling -> Ext -> Picture
+drawExt :: Filling -> Ext -> PictureL
 drawExt _ (Ext Nothing) = blank
 drawExt filling (Ext (Just (ExtentF yM ym xM xm))) =
   let prim = case filling of
-        Fill -> polygon
+        Fill   -> polygon
         NoFill -> line
   in
   prim [ (xM, yM)
@@ -34,38 +31,20 @@ drawExt filling (Ext (Just (ExtentF yM ym xM xm))) =
        , (xM, yM)
        ]
 
-drawExt2 :: Filling -> Ext2 -> Picture
-drawExt2 filling Ext2{..} = case height of
-  Nothing -> drawExt filling weakExt
-  Just h -> pictures [ drawExt filling weakExt
-                     , fixHeight h $
-                       drawExt filling strongExt
-                     ]
+getPictureExt :: PictureL -> Ext
+getPictureExt = cata extAlg
+
+extAlg :: PictureFL Ext -> Ext
+extAlg pic = getAtomExt pic <> alg pic
   where
-    height = do
-      (_,(_,h)) <- getExt strongExt
-      return $ 2*h
-
-getPictureExt :: Picture -> Ext
-getPictureExt = flattenExt2 . getPictureExt2
-
-getPictureExt2 :: Picture -> Ext2
-getPictureExt2 = cata ext2Alg
-
-ext2Alg :: PictureF Ext2 -> Ext2
-ext2Alg pic = mkWeakExt (getAtomExt pic) <> alg pic
-  where
-    alg (Translate x y p)   = translateExt2 x y p
-    alg (Rotate _ _)        = error "getPictureExt: Rotate isn't yet supported"
-    alg (Scale x y p)       = scaleExt2 x y p
+    alg (Translate x y p)   = translateExt x y p
+    alg (Scale x y p)       = scaleExt x y p
     alg (Pictures ps)       = mconcat ps
-    alg (FixedSize mx my p) = fixSizeExt2 mx my p
     alg (Color _ p)         = p
     alg (SelectionTrigger _ p) = p
-    -- Assume no FixedSize primitive in VCat/HCat elements
-    alg (VCat padding ps)   = mkWeakExt $ foldl1 (catFolder False padding) $ map weakExt ps
-    alg (HCat padding ps)   = mkWeakExt $ foldl1 (catFolder  True padding) $ map weakExt ps
-    alg (InsideRect _ padding _ p) = onWeakExt (enlargeExtAbs padding padding) p
+    alg (InsideRect padding _ _ p) = enlargeExtAbs padding padding p
+    alg (VCat padding ps)   = foldl1 (catFolder False padding) ps
+    alg (HCat padding ps)   = foldl1 (catFolder  True padding) ps
     alg _                   = mempty
 
     catFolder isHCat padding acc ext
@@ -80,19 +59,12 @@ ext2Alg pic = mkWeakExt (getAtomExt pic) <> alg pic
           False -> translateExt 0.0 (targetMinY - realMinY) ext
       | otherwise = ext
 
-getAtomExt :: PictureF a -> Ext
-getAtomExt Blank                 = mempty
-getAtomExt (Polygon path)        = mconcat $ map pointExt path
-getAtomExt (Line    path)        = mconcat $ map pointExt path
-getAtomExt (Circle   rad)        = scaleExt rad rad unitExt
-getAtomExt (Arc _ _ rad)         = scaleExt rad rad unitExt
-getAtomExt (ThickCircle th rad)  = scaleExt (th+rad) (th+rad) unitExt
-getAtomExt (ThickArc _ _ rad th) = scaleExt (th+rad) (th+rad) unitExt
-getAtomExt (Text str)            = let h = textHeight str
-                                       w = textWidth str
-                                   in  scaleExt w h unitExtQ1
-getAtomExt (Bitmap w h _ _)      = scaleExt
-                                      (fromIntegral w)
-                                      (fromIntegral h)
-                                      unitExtQ1
-getAtomExt _                     = mempty
+getAtomExt :: PictureFL a -> Ext
+getAtomExt Blank                   = mempty
+getAtomExt (Line _ path          ) = mconcat $ map pointExt path
+getAtomExt (Arc Nothing   _ _ rad) = scaleExt     rad      rad  unitExt
+getAtomExt (Arc (Just th) _ _ rad) = scaleExt (th+rad) (th+rad) unitExt
+getAtomExt (Text _ str           ) = let h = textHeight str
+                                         w = textWidth  str
+                                     in  scaleExt w h unitExtQ1
+getAtomExt _                       = mempty

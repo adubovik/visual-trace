@@ -54,7 +54,7 @@ sendTree = do
   let sendWithDelay msg = do
         threadDelay 10000
         send msg
-  commands <- mkCommands 6 100
+  commands <- mkCommands 6 10
   mapM_ (sendWithDelay . show) commands
 
 send :: String -> IO ()

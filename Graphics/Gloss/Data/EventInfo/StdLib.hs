@@ -9,16 +9,18 @@ import qualified Graphics.Gloss.Text as T
 import Graphics.Gloss.Data.EventInfo.Utils
 import Graphics.Gloss.Data.PictureF
 
-stdAnnotationDraw :: G.Point -> String -> Picture
+stdAnnotationDraw :: G.Point -> String -> PictureG
 stdAnnotationDraw mousePos annotationMsg =
   color G.black $
-  uncurry translate annotPos $
+  translateAnnot $
   T.textWithBackground oneLineHeight (G.greyN 0.8) $
   annotationMsg
   where
     oneLineHeight = Just 20
-    -- TODO: + (20,20) in terms of real screen coordinates
-    annotPos = mousePos + (20,20)
+    translateAnnot =
+      let (x,y) = mousePos
+      in translate (screen 5) (screen 5) .
+         translate (local  x) (local  y)
 
 stdAnnotationTransform ::
   (G.Point -> G.Point -> a -> a) ->

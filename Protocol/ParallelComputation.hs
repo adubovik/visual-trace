@@ -104,23 +104,23 @@ action Workunit{..} = onNodeMap modifyNodeMap
     modifyNodeMap = Map.insertWith (Map.unionWith (<>)) wuNodeId
                       (Map.singleton wuId workunit)
 
-drawAnn :: Image -> Picture
+drawAnn :: Image -> PictureG
 drawAnn Image{..} =
   pictures
     [ rvcat nodesPadding $ map (uncurry drawNode) $ Map.toList nodeMap
     , maybe blank drawAnnotatedWorkunit annotatedWorkunit
     ]
   where
-    nodesPadding           = 10
-    nodeRectPadding        = 10
-    nodeHeader_BodyPadding = 10
-    nodeIdRectPadding      = 5
+    nodesPadding           = local 10
+    nodeRectPadding        = local 10
+    nodeHeader_BodyPadding = local 10
+    nodeIdRectPadding      = local 5
     tableWHRatio           = 2.0
     nodeIdTextHeight       = 50
     wuStatusTextHeight     = 50
-    wuStatusRectPadding    = 3
-    tableVPadding          = 10
-    tableHPadding          = 10
+    wuStatusRectPadding    = local 3
+    tableVPadding          = local 10
+    tableHPadding          = local 10
     annotationFontHeight   = 20
 
     preprocessStatus :: String -> String
@@ -131,24 +131,25 @@ drawAnn Image{..} =
           suffix = replicate (n-n') ' '
       in s' ++ suffix
 
-    drawAnnotatedWorkunit :: AnnotatedWorkunit -> Picture
+    drawAnnotatedWorkunit :: AnnotatedWorkunit -> PictureG
     drawAnnotatedWorkunit AWu{..} =
         color G.black $
-        uncurry translate annotPos $
-        T.textsWithBackground oneLineHeight textRows
+        translateAnnot $
+        T.textsWithBackground (Just annotationFontHeight) textRows
       where
         textRows = (G.greyN 0.8, awuWuId) : map formRow wuHistory
         formRow ((clr,status), msg) = ( toColor clr
                                       , fromMaybe "-" status ++ ": " ++ msg
                                       )
-        oneLineHeight = Just annotationFontHeight
-        -- TODO: + (20,20) in terms of real screen coordinates
-        annotPos = awuMousePos + (20,20)
+        translateAnnot =
+          let (x,y) = awuMousePos
+          in translate (screen 5) (screen 5) .
+             translate (local  x) (local  y)
         Wu{..} = awuWu
 
-    drawNode :: NodeId -> Workunits -> Picture
+    drawNode :: NodeId -> Workunits -> PictureG
     drawNode nodeId workunits =
-      insideRect Fill nodeRectPadding (Just $ G.greyN 0.5) $
+      insideRect nodeRectPadding Fill (Just $ G.greyN 0.5) $
         rvcat nodeHeader_BodyPadding $ [ nodeHeader
                                        , drawTable width height workunits'
                                        ]
@@ -163,16 +164,16 @@ drawAnn Image{..} =
               w = (size + h - 1) `div` h
           in  (w,h)
 
-        nodeHeader = insideRect Fill nodeIdRectPadding (Just G.blue) $
+        nodeHeader = insideRect nodeIdRectPadding Fill (Just G.blue) $
                      drawText nodeIdTextHeight nodeId
 
-    drawText :: Float -> String -> Picture
+    drawText :: Float -> String -> PictureG
     drawText targetHeight s =
-      let factor = targetHeight/(T.textHeight s)
+      let factor = targetHeight / T.textHeight s
       in color G.black $
-         scale factor factor $ T.text s
+         scale' (local factor) $ T.text s
 
-    drawTable :: Int -> Int -> [Picture] -> Picture
+    drawTable :: Int -> Int -> [PictureG] -> PictureG
     drawTable w _h cells =
       rvcat tableVPadding $
       map (hcat tableHPadding) cells'
@@ -184,10 +185,10 @@ drawAnn Image{..} =
           let (hd,tl) = splitAt chunkSize ls
           in  hd : splitAtChunks chunkSize tl
 
-    drawWorkunit :: NodeId -> WorkunitId -> Workunit -> Picture
+    drawWorkunit :: NodeId -> WorkunitId -> Workunit -> PictureG
     drawWorkunit nodeId workunitId workunit@Wu{..} =
       selectionTrigger (wuFeedback nodeId workunitId workunit) $
-      insideRect Fill wuStatusRectPadding (Just $ toColor clr) $
+      insideRect wuStatusRectPadding Fill (Just $ toColor clr) $
       drawText wuStatusTextHeight $
       preprocessStatus $
       fromMaybe "" status

@@ -73,7 +73,7 @@ action (Done pid ann done) i =
          , annots = annots pb ++ replicate d a
          }
 
-drawAnn :: Image -> Picture
+drawAnn :: Image -> PictureG
 drawAnn Image{..} = pictures $ [ progressBarPics
                                , annotationPic
                                ]
@@ -108,14 +108,16 @@ drawAnn Image{..} = pictures $ [ progressBarPics
 
     drawCell pid idx ann =
       maybe id (selectionTrigger . cellFeedback pid idx) ann $
+      toPictureG $
       scale cellSize cellSize $
       polygon [(0,0),(1,0),(1,1),(0,1)]
 
     drawContour =
+      toPictureG $
       scale cellSize cellSize $
       line [(0,0),(1,0),(1,1),(0,1),(0,0)]
 
-    padding = cellSize/15.0
+    padding  = local $ cellSize/15.0
     cellSize = 30.0
 
     cellFeedback pid idx ann =
