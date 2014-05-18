@@ -104,8 +104,8 @@ action Workunit{..} = onNodeMap modifyNodeMap
     modifyNodeMap = Map.insertWith (Map.unionWith (<>)) wuNodeId
                       (Map.singleton wuId workunit)
 
-drawAnn :: Image -> PictureG
-drawAnn Image{..} =
+drawAnn' :: Image -> PictureG
+drawAnn' Image{..} =
   pictures
     [ rvcat nodesPadding $ map (uncurry drawNode) $ Map.toList nodeMap
     , maybe blank drawAnnotatedWorkunit annotatedWorkunit
@@ -219,5 +219,8 @@ evolution _secElapsed = id
 
 -- Common logic for all protocols
 
+drawAnn :: ViewPort -> Image -> PictureL
+drawAnn viewPort = desugarePicture viewPort . drawAnn'
+
 draw :: ViewPort -> Image -> G.Picture
-draw vp = toPicture vp . drawAnn
+draw viewPort = toPicture . drawAnn viewPort

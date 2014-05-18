@@ -14,7 +14,7 @@ module VisualTrace.Protocol.Graph
  , evolution
  ) where
 
-import VisualTrace.VisualTrace.Data.Graph.Dynamic.Annotated
+import VisualTrace.Data.Graph.Dynamic.Annotated
 import VisualTrace.Data.Graph.Layout
 
 import qualified Data.Map as Map
@@ -59,11 +59,12 @@ action :: Command -> Image -> Image
 action (InsertEdge fr to)    = onGraph $ insertEdge ((fr,to),Nothing)
 action (InsertNode node pos) = onGraph $ insertNode (node, Just ((), pos))
 
-drawAnn :: Image -> PictureG
-drawAnn Image{..} = pictures $
-                      edgePics ++
-                      nodePics ++
-                      [annotationPic]
+drawAnn' :: Image -> PictureG
+drawAnn' Image{..} =
+  pictures $
+    edgePics ++
+    nodePics ++
+    [annotationPic]
   where
     annotationPic = maybe blank annotationDraw nodeAnnotation
     annotationDraw (mousePos,node) =
@@ -139,5 +140,8 @@ evolution _secElapsed = onGraph $ fst . applyForces stdForces
 
 -- Common logic for all protocols
 
+drawAnn :: ViewPort -> Image -> PictureL
+drawAnn viewPort = desugarePicture viewPort . drawAnn'
+
 draw :: ViewPort -> Image -> G.Picture
-draw vp = toPicture vp . drawAnn
+draw viewPort = toPicture . drawAnn viewPort

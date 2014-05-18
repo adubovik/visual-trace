@@ -11,8 +11,8 @@ module VisualTrace.Data.Graph.Layout
  ) where
 
 import Graphics.Gloss.Data.Point
-import VisualTrace.VisualTrace.Data.Graph.Dynamic.Annotated
-import VisualTrace.VisualTrace.Data.Graph.Layout.Physics
+import VisualTrace.Data.Graph.Dynamic.Annotated
+import VisualTrace.Data.Graph.Layout.Physics
 
 import Control.Arrow
 import qualified Data.Map as Map

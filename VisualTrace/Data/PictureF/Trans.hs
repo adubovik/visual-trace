@@ -69,8 +69,8 @@ desugarePicture viewPort =
   expandVHCat .
   expandScreenCoordinates viewPort
 
-toPicture :: ViewPort -> PictureG -> G.Picture
-toPicture viewPort = cata alg . desugarePicture viewPort
+toPicture :: PictureL -> G.Picture
+toPicture = cata alg
   where
     alg :: PictureFL G.Picture -> G.Picture
     alg pic = case pic of

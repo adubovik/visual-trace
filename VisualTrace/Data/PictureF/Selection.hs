@@ -24,9 +24,7 @@ import Control.Applicative
 import Control.Applicative.WrapMonadDual
 
 import Graphics.Gloss(yellow, Point)
-import Graphics.Gloss.Data.ViewPort
 import VisualTrace.Data.PictureF
-import VisualTrace.Data.PictureF.Trans
 import VisualTrace.Data.Ext
 import VisualTrace.Data.Ext.Utils
 import VisualTrace.Data.Matrix
@@ -51,13 +49,11 @@ initSState = SState { selExt    = Nothing
                     , selInExt  = Nothing
                     }
 
-evalSelectionInfo :: ViewPort -> Point -> PictureG -> PictureS
-evalSelectionInfo viewPort point pic = pic3
+evalSelectionInfo :: Point -> PictureL -> PictureS
+evalSelectionInfo point pic = pic3
   where
     pic0 :: PictureS
-    pic0 = annotateCata (const initSState) .
-           desugarePicture viewPort $
-           pic
+    pic0 = annotateCata (const initSState) pic
 
     pic1 :: PictureS
     pic1 = annotateCata annExtAlg pic0
@@ -96,8 +92,8 @@ evalSelectionInfo viewPort point pic = pic3
                 return isIn
           in oldState { selInExt = inExt }
 
-selectWithExt :: ViewPort -> Point -> PictureG -> (Maybe PictureG, PictureG)
-selectWithExt viewPort point = select viewPort point extBorder
+selectWithExt :: Point -> PictureL -> (Maybe PictureL, PictureL)
+selectWithExt point = select point extBorder
   where
     extBorder :: PictureL -> PictureL
     extBorder pic = let ext = getPictureExt pic
@@ -106,23 +102,15 @@ selectWithExt viewPort point = select viewPort point extBorder
                                 , pic
                                 ]
 
--- TODO: get rid of this abomination
-select :: ViewPort -> Point -> (PictureL -> PictureL) ->
-           PictureG -> (Maybe PictureG, PictureG)
-select viewPort point selectionTrans pic =
-  transRet $ select' viewPort point selectionTrans pic
-  where
-    transRet = fmap toPictureG *** toPictureG
-
 -- TODO: It's actually a lens!
-select' :: ViewPort -> Point -> (PictureL -> PictureL) ->
-          PictureG -> (Maybe PictureL, PictureL)
-select' viewPort point selectionTrans pic = pic'
+select :: Point -> (PictureL -> PictureL) ->
+          PictureL -> (Maybe PictureL, PictureL)
+select point selectionTrans pic = pic'
   where
     pic' :: (Maybe PictureL, PictureL)
     pic' = first getFirst $
            paraWithAnnotation transAlg $
-           evalSelectionInfo viewPort point pic
+           evalSelectionInfo point pic
       where
         transAlg :: SState ->
                     PictureFL ((First PictureL, PictureL), PictureS) ->

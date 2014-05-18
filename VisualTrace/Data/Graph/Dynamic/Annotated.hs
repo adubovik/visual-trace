@@ -2,7 +2,7 @@
    RecordWildCards
  #-}
 
-module VisualTrace.VisualTrace.Data.Graph.Dynamic.Annotated
+module VisualTrace.Data.Graph.Dynamic.Annotated
  (
  -- * Types
    Edge

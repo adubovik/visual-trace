@@ -1,4 +1,4 @@
-module VisualTrace.VisualTrace.Data.Graph.Layout.Physics
+module VisualTrace.Data.Graph.Layout.Physics
  ( logSpring
  , quadRepel
  , distance

@@ -73,10 +73,10 @@ action (Done pid ann done) i =
          , annots = annots pb ++ replicate d a
          }
 
-drawAnn :: Image -> PictureG
-drawAnn Image{..} = pictures $ [ progressBarPics
-                               , annotationPic
-                               ]
+drawAnn' :: Image -> PictureG
+drawAnn' Image{..} = pictures $ [ progressBarPics
+                                , annotationPic
+                                ]
   where
     progressBarPics =
       rvcat padding $
@@ -137,5 +137,8 @@ evolution = const id
 
 -- Common logic for all protocols
 
+drawAnn :: ViewPort -> Image -> PictureL
+drawAnn viewPort = desugarePicture viewPort . drawAnn'
+
 draw :: ViewPort -> Image -> G.Picture
-draw vp = toPicture vp . drawAnn
+draw viewPort = toPicture . drawAnn viewPort

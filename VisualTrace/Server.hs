@@ -16,16 +16,16 @@ import Codec.Binary.UTF8.String
 import qualified Graphics.UI.GLUT as GLUT
 
 import Graphics.Gloss.Interface.IO.Game
+import Graphics.Gloss.Data.ViewState hiding (Command)
 
 import VisualTrace.Data.EventInfo
 import VisualTrace.Data.Ext
-import Graphics.Gloss.Data.ViewState hiding (Command)
 import VisualTrace.Data.ViewState.Focus
 import VisualTrace.Data.Ext.Utils
 import qualified VisualTrace.Data.PictureF as PF
 import VisualTrace.Data.Feedback
 import VisualTrace.Data.PictureF.Selection(selectWithExt, select)
-import VisualTrace.Data.PictureF.Trans(toPicture,desugarePicture)
+import VisualTrace.Data.PictureF.Trans(toPicture)
 
 import Data.Monoid
 import qualified Data.Map as Map
@@ -36,9 +36,9 @@ import Control.Concurrent.MVar
 import Control.Concurrent
 import Control.Monad
 
--- import VisualTrace.Protocol.ProgressBar
+import VisualTrace.Protocol.ProgressBar
 -- import VisualTrace.Protocol.Graph
-import VisualTrace.Protocol.ParallelComputation
+-- import VisualTrace.Protocol.ParallelComputation
 
 type EventHandler = Event -> World -> IO World
 newtype ServerImage = ServerImage { unServerImage :: Image }
@@ -130,8 +130,8 @@ handleEventStep imageEvolution event world@World{..} = do
       localMousePos = invertViewPort viewPort mousePos
 
   let selectedPic = fst $
-                    select viewPort localMousePos id $
-                    drawAnn oldImage
+                    select localMousePos id $
+                    drawAnn viewPort oldImage
 
       newFeedback = case selectedPic of
         Just (PF.unWrap -> PF.SelectionTrigger fb _) -> Just fb
@@ -178,7 +178,7 @@ eventHandler e@(EventMotion _) w = do
 
 eventHandler (EventKey (Char 'r') Down _mod _pos) w@World{..} = do
   ServerImage image <- readMVar wImage
-  let imageExt = getPictureExt $ desugarePicture viewPort $ drawAnn image
+  let imageExt = getPictureExt $ drawAnn viewPort image
       focusExt = enlargeExt 1.1 1.1 imageExt
 
   windowSize <- getWindowSize
@@ -208,14 +208,13 @@ drawWorld World{..} = do
   ServerImage image <- readMVar wImage
   let selectImage pic = case wMousePos of
         Nothing       -> pic
-        Just mousePos -> snd $ selectWithExt viewPort mousePos pic
+        Just mousePos -> snd $ selectWithExt mousePos pic
 
-      picture = selectImage $ drawAnn image
+      picture = selectImage $ drawAnn viewPort image
 
   return $
     applyViewPortToPicture viewPort $
-      toPicture viewPort $
-        picture
+      toPicture picture
   where
     viewPort = viewStateViewPort wViewState
 
