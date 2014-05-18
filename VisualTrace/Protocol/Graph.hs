@@ -1,17 +1,13 @@
 {-# language
    RecordWildCards
  , DeriveDataTypeable
+ , TypeFamilies
  #-}
 
 module VisualTrace.Protocol.Graph
- ( Image
+ ( Image()
  -- Abstract for Server
  , Command(..)
- , mkImage
- , action
- , drawAnn
- , draw
- , evolution
  ) where
 
 import VisualTrace.Data.Graph.Dynamic.Annotated
@@ -26,11 +22,11 @@ import Graphics.Gloss.Interface.Pure.Game(MouseButton(..))
 import VisualTrace.Data.EventInfo.Utils
 import VisualTrace.Data.EventInfo.StdLib
 import Graphics.Gloss.Data.Point
-import Graphics.Gloss.Data.ViewPort
 import qualified Graphics.Gloss as G
 import VisualTrace.Data.PictureF
-import VisualTrace.Data.PictureF.Trans
 import VisualTrace.Data.Feedback
+
+import qualified VisualTrace.Protocol.Image as I
 
 data Command = InsertEdge Key Key
              | InsertNode Key Point
@@ -45,6 +41,13 @@ data Image = Image
   , nodeAnnotation :: Maybe (Point, Node Key)
   }
   deriving (Show, Read, Eq, Ord, Typeable)
+
+instance I.Image Image where
+  type Command Image = Command
+  initImage = mkImage
+  drawImageG = drawAnn'
+  evolveImage = evolution
+  interpret = action
 
 onGraph :: (Graph -> Graph) -> (Image -> Image)
 onGraph f im = im { graph2d = f (graph2d im) }
@@ -137,11 +140,3 @@ drawAnn' Image{..} =
 
 evolution :: Float -> Image -> Image
 evolution _secElapsed = onGraph $ fst . applyForces stdForces
-
--- Common logic for all protocols
-
-drawAnn :: ViewPort -> Image -> PictureL
-drawAnn viewPort = desugarePicture viewPort . drawAnn'
-
-draw :: ViewPort -> Image -> G.Picture
-draw viewPort = toPicture . drawAnn viewPort

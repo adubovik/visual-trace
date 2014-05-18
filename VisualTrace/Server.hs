@@ -4,10 +4,13 @@
  , RecordWildCards
  , TupleSections
  , NamedFieldPuns
+ , ExistentialQuantification
+ , Rank2Types
  #-}
 
 module VisualTrace.Server(main) where
 
+import System.Environment
 import Network.HTTP.Server
 import Network.Socket
 import Network.URL
@@ -36,12 +39,13 @@ import Control.Concurrent.MVar
 import Control.Concurrent
 import Control.Monad
 
-import VisualTrace.Protocol.ProgressBar
--- import VisualTrace.Protocol.Graph
--- import VisualTrace.Protocol.ParallelComputation
+import VisualTrace.Protocol.Image
+import qualified VisualTrace.Protocol.ProgressBar as ProgressBar
+import qualified VisualTrace.Protocol.Graph as Graph
+import qualified VisualTrace.Protocol.ParallelComputation as ParallelComputation
 
 type EventHandler = Event -> World -> IO World
-newtype ServerImage = ServerImage { unServerImage :: Image }
+data ServerImage = forall i. Image i => ServerImage i
 
 data World = World
  { wViewState :: ViewState
@@ -51,13 +55,16 @@ data World = World
  , wEventHistory :: EventHistory
  }
 
-onServerImage :: Functor m => (Image -> m Image) -> ServerImage -> m ServerImage
-onServerImage f = (ServerImage <$>) . f . unServerImage
+onServerImage :: Functor m => (forall i. Image i => i -> m i) ->
+                 ServerImage -> m ServerImage
+onServerImage f (ServerImage i) = ServerImage <$> f i
 
-readImage :: World -> IO Image
-readImage =  (unServerImage <$>) . readMVar . wImage
+queryImage :: (forall i. Image i => i -> q) -> World -> IO q
+queryImage f w = do
+  ServerImage i <- readMVar (wImage w)
+  return $ f i
 
-onImage :: (Image -> IO Image) -> World -> IO ()
+onImage :: (forall i. Image i => i -> IO i) -> World -> IO ()
 onImage f w = modifyMVar_ (wImage w) $ onServerImage f
 
 -- TODO: lens
@@ -79,8 +86,8 @@ getWindowSize = do
 handler :: World -> SockAddr -> URL -> Request String -> IO (Response String)
 handler world _addr _url req = do
   putStrLn $ "Received: " ++ show (rqBody req)
-  let (command :: Command) = read $ rqBody req
-  onImage (return . action command) world
+  let command :: String = rqBody req
+  onImage (return . interpretCommand command) world
   return $ sendText OK ("Server received:\n" ++ show req)
 
 sendText :: StatusCode -> String -> Response String
@@ -120,32 +127,36 @@ updateEventHistoryIO event eh = do
   windowSize <- getWindowSize
   return $ updateEventHistory windowSize event eh
 
-handleEventStep :: (Image -> Image) -> Event -> World -> IO World
+handleEventStep :: (forall i. Image i => i -> i) -> Event -> World -> IO World
 handleEventStep imageEvolution event world@World{..} = do
-  oldImage <- readImage world
-  onImage (return . imageEvolution) world
-
   let mousePos = getCurrMousePos wEventHistory
       viewPort = viewStateViewPort wViewState
       localMousePos = invertViewPort viewPort mousePos
 
+  oldPic <- queryImage (drawImage viewPort) world
+  onImage (return . imageEvolution) world
+
   let selectedPic = fst $
                     select localMousePos id $
-                    drawAnn viewPort oldImage
+                    oldPic
 
       newFeedback = case selectedPic of
         Just (PF.unWrap -> PF.SelectionTrigger fb _) -> Just fb
         _ -> Nothing
       oldFeedback = wLastFeedback
 
-  let runFeedbackWithEvent feedBack eventInfo
-        | Just (ExWrap wrapedFeedback) <- feedBack
-        , Just fb <- Typeable.cast wrapedFeedback
-        = do
-            flip onImage world $ runFeedback fb eventInfo
-            return $ getFocusCapture fb eventInfo
-        | otherwise
-        = return FocusReleased
+  let runFeedbackWithEvent (Just feedBack@(ExWrap wFeedback)) eventInfo = do
+        onImage (runFeedbackOnImage feedBack eventInfo) world
+        return $ getFocusCapture wFeedback eventInfo
+      runFeedbackWithEvent Nothing _ =
+        return FocusReleased
+
+      runFeedbackOnImage :: Image i => ExWrap Feedback -> EventInfo ->
+                            i -> IO i
+      runFeedbackOnImage (ExWrap wrappedFeedback) eventInfo img =
+        case Typeable.cast wrappedFeedback of
+          Just fb -> runFeedback fb eventInfo img
+          Nothing -> return img
 
   let focusSwith = oldFeedback /= newFeedback
       focusOld | focusSwith = FocusLost
@@ -178,7 +189,7 @@ eventHandler e@(EventMotion _) w = do
 
 eventHandler (EventKey (Char 'r') Down _mod _pos) w@World{..} = do
   ServerImage image <- readMVar wImage
-  let imageExt = getPictureExt $ drawAnn viewPort image
+  let imageExt = getPictureExt $ drawImage viewPort image
       focusExt = enlargeExt 1.1 1.1 imageExt
 
   windowSize <- getWindowSize
@@ -198,7 +209,7 @@ timeEvolution secElapsed w = do
           event = EventMotion mousePos
 
   (event, w') <- emitFakeEvent w
-  handleEventStep (evolution secElapsed) event w'
+  handleEventStep (evolveImage secElapsed) event w'
 
   -- onImage (return . evolution secElapsed) w
   -- return w
@@ -210,7 +221,7 @@ drawWorld World{..} = do
         Nothing       -> pic
         Just mousePos -> snd $ selectWithExt mousePos pic
 
-      picture = selectImage $ drawAnn viewPort image
+      picture = selectImage $ drawImage viewPort image
 
   return $
     applyViewPortToPicture viewPort $
@@ -218,9 +229,9 @@ drawWorld World{..} = do
   where
     viewPort = viewStateViewPort wViewState
 
-initWorld :: IO World
-initWorld = do
-  image <- newMVar (ServerImage mkImage)
+initWorld :: Image i => i -> IO World
+initWorld img = do
+  image <- newMVar (ServerImage img)
   return $ World
     { wViewState = viewStateInitWithConfig $ Map.toList $
                      Map.fromList commandConfig <>
@@ -236,16 +247,23 @@ initWorld = do
                  , [ ( MouseButton RightButton
                      , Just (Modifiers { shift = Up, ctrl = Up, alt = Up })
                      )])
-    oRotate  = (CRotate, [])
+    oRotate  = (CRotate , [])
     oRestore = (CRestore, [])
 
 main :: IO ()
 main = do
+  [client] <- getArgs
+
   let config = defaultConfig { srvHost = "localhost"
                              , srvPort = 8888
                              }
   putStrLn "Server is running..."
 
-  world <- initWorld
+  world <- case client of
+    "graph" -> initWorld (initImage :: Graph.Image)
+    "bars"  -> initWorld (initImage :: ProgressBar.Image)
+    "comps" -> initWorld (initImage :: ParallelComputation.Image)
+    _ -> error "Incorrect arg."
+
   void $ forkIO (render world)
   serverWith config (handler world)

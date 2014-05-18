@@ -1,17 +1,13 @@
 {-# language
    RecordWildCards
  , DeriveDataTypeable
+ , TypeFamilies
  #-}
 
 module VisualTrace.Protocol.ParallelComputation
  ( Image
  -- Abstract for Server
  , Command(..)
- , mkImage
- , action
- , drawAnn
- , draw
- , evolution
  )
  where
 
@@ -21,15 +17,15 @@ import Data.Typeable
 import qualified Data.Map as Map
 
 import qualified VisualTrace.Text as T
-import Graphics.Gloss.Data.ViewPort
 import qualified Graphics.Gloss as G
 import VisualTrace.Data.EventInfo.Utils
 import VisualTrace.Data.EventInfo.StdLib
 import Graphics.Gloss.Data.Point
 import VisualTrace.Data.PictureF
-import VisualTrace.Data.PictureF.Trans
 import VisualTrace.Data.ColorRead(Color,fromColor,toColor)
 import VisualTrace.Data.Feedback
+
+import qualified VisualTrace.Protocol.Image as I
 
 -- Identifier of computation node
 -- that processing a workunit.
@@ -84,6 +80,13 @@ data Image = Image
   , annotatedWorkunit :: Maybe AnnotatedWorkunit
   }
   deriving (Show, Read, Eq, Ord, Typeable)
+
+instance I.Image Image where
+  type Command Image = Command
+  initImage = mkImage
+  drawImageG = drawAnn'
+  evolveImage = evolution
+  interpret = action
 
 onNodeMap :: (Map.Map NodeId Workunits -> Map.Map NodeId Workunits) ->
              (Image -> Image)
@@ -216,11 +219,3 @@ drawAnn' Image{..} =
 
 evolution :: Float -> Image -> Image
 evolution _secElapsed = id
-
--- Common logic for all protocols
-
-drawAnn :: ViewPort -> Image -> PictureL
-drawAnn viewPort = desugarePicture viewPort . drawAnn'
-
-draw :: ViewPort -> Image -> G.Picture
-draw viewPort = toPicture . drawAnn viewPort

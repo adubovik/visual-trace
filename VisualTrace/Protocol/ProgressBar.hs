@@ -1,17 +1,13 @@
 {-# language
    RecordWildCards
  , DeriveDataTypeable
+ , TypeFamilies
  #-}
 
 module VisualTrace.Protocol.ProgressBar
- ( Image
+ ( Image()
  -- Abstract for Server
  , Command(..)
- , mkImage
- , action
- , drawAnn
- , draw
- , evolution
  ) where
 
 import Data.Typeable(Typeable)
@@ -21,17 +17,19 @@ import Text.Printf
 
 import qualified Graphics.Gloss as G
 import Graphics.Gloss.Data.Point
-import Graphics.Gloss.Data.ViewPort
 import VisualTrace.Data.PictureF
-import VisualTrace.Data.PictureF.Trans
 import VisualTrace.Data.Feedback
 
 import VisualTrace.Data.EventInfo.Utils
 import VisualTrace.Data.EventInfo.StdLib
 
+import qualified VisualTrace.Protocol.Image as I
+
 data Command = Init ProgressBarId (Maybe Int)
              | Done ProgressBarId (Maybe String) Int
   deriving (Show, Read, Eq, Ord)
+
+type ProgressBarId = String
 
 data Image = Image
   { progressBars   :: Map.Map ProgressBarId ProgressBar
@@ -39,7 +37,12 @@ data Image = Image
   }
   deriving (Eq, Ord, Show, Read, Typeable)
 
-type ProgressBarId = String
+instance I.Image Image where
+  type Command Image = Command
+  initImage = mkImage
+  drawImageG = drawAnn'
+  evolveImage = evolution
+  interpret = action
 
 data ProgressBar = ProgressBar
   { count    :: Maybe Int
@@ -134,11 +137,3 @@ drawAnn' Image{..} = pictures $ [ progressBarPics
 
 evolution :: Float -> Image -> Image
 evolution = const id
-
--- Common logic for all protocols
-
-drawAnn :: ViewPort -> Image -> PictureL
-drawAnn viewPort = desugarePicture viewPort . drawAnn'
-
-draw :: ViewPort -> Image -> G.Picture
-draw viewPort = toPicture . drawAnn viewPort
