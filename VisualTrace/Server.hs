@@ -8,8 +8,15 @@
  , Rank2Types
  #-}
 
-module VisualTrace.Server(main) where
+module VisualTrace.Server
+ ( runServer
+ , runServerWithConfig
 
+ , defaultHttpConfig
+ , httpOptions
+ ) where
+
+import System.Console.GetOpt
 import System.Environment
 import Network.HTTP.Server
 import Network.Socket
@@ -30,6 +37,7 @@ import VisualTrace.Data.Feedback
 import VisualTrace.Data.PictureF.Selection(selectWithExt, select)
 import VisualTrace.Data.PictureF.Trans(toPicture)
 
+import Text.Printf
 import Data.Monoid
 import qualified Data.Map as Map
 import qualified Data.Typeable as Typeable
@@ -40,9 +48,6 @@ import Control.Concurrent
 import Control.Monad
 
 import VisualTrace.Protocol.Image
-import qualified VisualTrace.Protocol.ProgressBar as ProgressBar
-import qualified VisualTrace.Protocol.Graph as Graph
-import qualified VisualTrace.Protocol.ParallelComputation as ParallelComputation
 
 type EventHandler = Event -> World -> IO World
 data ServerImage = forall i. Image i => ServerImage i
@@ -86,8 +91,15 @@ getWindowSize = do
 handler :: World -> SockAddr -> URL -> Request String -> IO (Response String)
 handler world _addr _url req = do
   putStrLn $ "Received: " ++ show (rqBody req)
+
   let command :: String = rqBody req
-  onImage (return . interpretCommand command) world
+      runCommand img = case interpretCommand command img of
+        Left  msg  -> do
+          putStrLn $ "Parse error: " ++ msg
+          return img
+        Right img' -> return img'
+
+  onImage runCommand world
   return $ sendText OK ("Server received:\n" ++ show req)
 
 sendText :: StatusCode -> String -> Response String
@@ -250,20 +262,40 @@ initWorld img = do
     oRotate  = (CRotate , [])
     oRestore = (CRestore, [])
 
-main :: IO ()
-main = do
-  [client] <- getArgs
-
-  let config = defaultConfig { srvHost = "localhost"
-                             , srvPort = 8888
-                             }
-  putStrLn "Server is running..."
-
-  world <- case client of
-    "graph" -> initWorld (initImage :: Graph.Image)
-    "bars"  -> initWorld (initImage :: ProgressBar.Image)
-    "comps" -> initWorld (initImage :: ParallelComputation.Image)
-    _ -> error "Incorrect arg."
+runServerWithConfig :: Image i => Config -> i -> IO ()
+runServerWithConfig config initImg = do
+  putStrLn $ printf "Server is running at %s:%s..." (srvHost config) (show (srvPort config))
+  world <- initWorld initImg
 
   void $ forkIO (render world)
   serverWith config (handler world)
+
+runServer :: Image i => i -> IO ()
+runServer initImg = do
+  conf <- parseHttpOptions
+  runServerWithConfig conf initImg
+
+defaultHttpConfig :: Config
+defaultHttpConfig =
+  defaultConfig { srvHost = "localhost"
+                , srvPort = 8888
+                }
+
+httpOptions :: [OptDescr (Config -> Config)]
+httpOptions =
+  [ Option ['h'] ["host"]
+      (ReqArg (\h opts -> opts { srvHost = h }) "HOST")
+      "Server host (localhost by default)"
+  , Option ['p'] ["port"]
+      (ReqArg (\p opts -> opts { srvPort = fromInteger (read p) }) "PORT")
+      "Port to listen (8888 by default)"
+  ]
+
+parseHttpOptions :: IO Config
+parseHttpOptions = do
+  argv <- getArgs
+  pname <- getProgName
+  let header = printf "Usage: %s [OPTION...]" pname
+  case getOpt Permute httpOptions argv of
+    (o,_n,[] ) -> return $ foldl (flip id) defaultHttpConfig o
+    (_,_,errs) -> ioError (userError (concat errs ++ usageInfo header httpOptions))

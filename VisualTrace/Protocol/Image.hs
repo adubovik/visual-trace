@@ -24,8 +24,11 @@ class (Typeable a, Read (Command a)) => Image a where
   evolveImage :: Float -> a -> a
   interpret :: Command a -> a -> a
 
-interpretCommand :: Image a => String -> a -> a
-interpretCommand command = interpret (read command)
+interpretCommand :: Image a => String -> a -> Either String a
+interpretCommand command img =
+  case reads command of
+    [] -> Left $ "Can't read command: " ++ command ++ "."
+    (command',_):_ -> Right $ interpret command' img
 
 drawImage :: Image a => ViewPort -> a -> PictureL
 drawImage viewPort = desugarePicture viewPort . drawImageG
