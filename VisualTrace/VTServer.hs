@@ -41,7 +41,7 @@ defVtConfig = VTConfig { vtImage = Nothing
 
 vtOptions :: [OptDescr (VTConfig -> VTConfig)]
 vtOptions =
-  fmap (fmap onVTConfig) httpOptions ++
+  fmap (fmap onHttpConfig) httpOptions ++
   [ Option ['i'] ["image"]
       (ReqArg (\i opts -> opts { vtImage = Just (readSafe i) }) "IMAGE")
       ("Image to use. One of " ++ show [(minBound::Image)..maxBound])
@@ -51,9 +51,9 @@ vtOptions =
       [] -> error $ "Can't parse " ++ str
       (x,_):_ -> x
 
-    onVTConfig :: (HTTP.Config -> HTTP.Config) ->
-                  VTConfig -> VTConfig
-    onVTConfig f vt = vt { vtHttpConfig = f (vtHttpConfig vt) }
+    onHttpConfig :: (HTTP.Config -> HTTP.Config) ->
+                    VTConfig -> VTConfig
+    onHttpConfig f vt = vt { vtHttpConfig = f (vtHttpConfig vt) }
 
 parseVtOptions :: IO VTConfig
 parseVtOptions = do
