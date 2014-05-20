@@ -5,6 +5,7 @@
  , ScopedTypeVariables
  , Rank2Types
  , RecordWildCards
+ , DoAndIfThenElse
  #-}
 
 module VisualTrace.Data.PictureF.Selection (

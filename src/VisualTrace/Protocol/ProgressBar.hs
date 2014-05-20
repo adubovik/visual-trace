@@ -2,6 +2,7 @@
    RecordWildCards
  , DeriveDataTypeable
  , TypeFamilies
+ , PatternGuards
  #-}
 
 module VisualTrace.Protocol.ProgressBar

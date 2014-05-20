@@ -1,5 +1,6 @@
 {-# language
    RecordWildCards
+ , PatternGuards
  #-}
 
 module VisualTrace.Data.EventInfo.Utils where

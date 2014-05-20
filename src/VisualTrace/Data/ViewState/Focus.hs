@@ -1,5 +1,6 @@
 {-# language
    ViewPatterns
+ , PatternGuards
   #-}
 
 module VisualTrace.Data.ViewState.Focus

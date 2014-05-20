@@ -1,0 +1,77 @@
+name:          visual-trace
+version:       0.0.0
+license:       BSD3
+author:        Anton Dubovik
+cabal-version: >= 1.8
+synopsis:      Visual trace library
+build-type:    Simple
+category:      Debug
+
+library
+  build-depends:
+    base,
+    mtl,
+    random,
+    bytestring,
+    GLUT,
+    containers,
+    http-server,
+    network,
+    gloss,
+    http-conduit,
+    utf8-string,
+    url
+  hs-source-dirs: src
+  exposed-modules:
+    Control.Applicative.WrapMonadDual,
+    VisualTrace.VTServer,
+    VisualTrace.Text,
+    VisualTrace.Server,
+    VisualTrace.Data.EventInfo.StdLib,
+    VisualTrace.Data.EventInfo.Utils,
+    VisualTrace.Data.Graph.Layout.Physics,
+    VisualTrace.Data.Graph.Dynamic,
+    VisualTrace.Data.Graph.Dynamic.Annotated,
+    VisualTrace.Data.Graph.Layout,
+    VisualTrace.Data.Ext,
+    VisualTrace.Data.Fix,
+    VisualTrace.Data.Ext.Utils,
+    VisualTrace.Data.PictureF,
+    VisualTrace.Data.Matrix,
+    VisualTrace.Data.Feedback,
+    VisualTrace.Data.EventInfo,
+    VisualTrace.Data.ColorRead,
+    VisualTrace.Data.PictureF.Selection,
+    VisualTrace.Data.PictureF.Trans,
+    VisualTrace.Data.ViewState.Utils,
+    VisualTrace.Data.ViewState.Focus,
+    VisualTrace.Client.ProgressBar,
+    VisualTrace.Client.Graph,
+    VisualTrace.Client.Computations,
+    VisualTrace.Client.Tree,
+    VisualTrace.Client,
+    VisualTrace.Protocol.ProgressBar,
+    VisualTrace.Protocol.Graph,
+    VisualTrace.Protocol.ParallelComputation,
+    VisualTrace.Protocol.Image,
+    Debug.Utils
+  other-modules:
+  ghc-options: -Wall -Werror -O2
+
+executable vtserver
+  build-depends:
+    base,
+    mtl,
+    random,
+    bytestring,
+    GLUT,
+    containers,
+    http-server,
+    network,
+    gloss,
+    http-conduit,
+    utf8-string,
+    url
+  hs-source-dirs: src
+  main-is: VisualTrace/VTServer.hs
+  ghc-options: -Wall -Werror -O2 -main-is VisualTrace.VTServer

@@ -1,6 +1,7 @@
 {-# language
    ViewPatterns
  , RecordWildCards
+ , PatternGuards
   #-}
 
 module VisualTrace.Data.Ext.Utils (

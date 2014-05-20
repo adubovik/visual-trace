@@ -1,5 +1,6 @@
 {-# language
    RecordWildCards
+ , DoAndIfThenElse
  #-}
 
 module VisualTrace.Client.Graph(main) where

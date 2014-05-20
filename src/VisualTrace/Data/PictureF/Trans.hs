@@ -2,6 +2,7 @@
    ViewPatterns
  , TupleSections
  , RecordWildCards
+ , PatternGuards
  #-}
 
 module VisualTrace.Data.PictureF.Trans

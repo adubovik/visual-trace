@@ -2,6 +2,8 @@
    RecordWildCards
  , DeriveDataTypeable
  , TypeFamilies
+ , PatternGuards
+ , DoAndIfThenElse
  #-}
 
 module VisualTrace.Protocol.Graph
