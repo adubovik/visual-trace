@@ -1,18 +1,19 @@
-{-# LANGUAGE OverloadedStrings  #-}
+{-# language
+   RecordWildCards
+ #-}
 
 module VisualTrace.Client.Graph(main) where
 
-import Network.HTTP.Conduit
-import qualified Data.ByteString.Lazy as BS
-import qualified Codec.Binary.UTF8.String as UTF8
+import System.Console.GetOpt
+import System.Random
+import System.Environment
+
 import qualified Data.Set as Set
 import Data.List
 import Text.Printf
-import Control.Concurrent
-import Control.Monad
-import System.Random
 
 import VisualTrace.Protocol.Graph
+import qualified VisualTrace.Client as Client
 
 rndPoint :: (Float,Float) -> (Float,Float) -> IO (Float, Float)
 rndPoint xr yr = do
@@ -48,28 +49,55 @@ genRndCommand (restNodes, graphNodes) = do
     node2 <- rndElem nodeList'
     return $ ((restNodes, graphNodes), InsertEdge node1 node2)
 
+send :: Show a => a -> IO ()
+send = Client.sendWithDelay 0.5 "localhost" 8888
+
+data Config = Config
+  { cfgNodes :: Int
+  , cfgEdges :: Int
+  }
+
+defaultConfig :: Config
+defaultConfig = Config
+  { cfgNodes = 15
+  , cfgEdges = 50
+  }
+
+options :: [OptDescr (Config -> Config)]
+options =
+  [ Option ['e'] ["edges"]
+      (ReqArg (\i opts -> opts { cfgEdges = readSafe i }) "INTEGER")
+      "Number of edges in graph (50 default)."
+  , Option ['n'] ["nodes"]
+      (ReqArg (\i opts -> opts { cfgNodes = readSafe i }) "INTEGER")
+      "Number of nodes in graph (15 default)."
+  ]
+  where
+    readSafe str = case reads str of
+      [] -> error $ "Can't parse " ++ str
+      (x,_):_ -> x
+
+getConfig :: IO Config
+getConfig = do
+  argv <- getArgs
+  pname <- getProgName
+  let header = printf "Usage: %s [OPTION...]" pname
+  case getOpt Permute options argv of
+    (o,_n,[] ) -> return $ foldl (flip id) defaultConfig o
+    (_,_,errs) -> ioError (userError (concat errs ++ usageInfo header options))
+
 main :: IO ()
 main = do
-  let n = 15
-      m = 50
-      initGr = (Set.fromList [0..n-1], Set.empty)
+  Config{..} <- getConfig
+
+  let initGr = (Set.fromList [0..cfgNodes-1], Set.empty)
 
       go :: (Set.Set Int, Set.Set Int) -> Int -> IO ()
       go _ 0 = return ()
       go gr cnt = do
-        threadDelay 1000000
         (gr', command) <- genRndCommand gr
-        send $ show command
+        send command
         go gr' (cnt-1)
 
-  go initGr m
+  go initGr cfgEdges
 
-send :: String -> IO ()
-send msg = do
-  putStrLn $ printf "Sending %s..." msg
-  req <- parseUrl "http://localhost:8888"
-  let req' = req { method = "POST"
-                 , requestBody = RequestBodyLBS $ BS.pack $
-                                 UTF8.encode msg
-                 }
-  void $ withManager $ httpLbs req'

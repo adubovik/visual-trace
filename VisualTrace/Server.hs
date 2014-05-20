@@ -90,7 +90,7 @@ getWindowSize = do
 
 handler :: World -> SockAddr -> URL -> Request String -> IO (Response String)
 handler world _addr _url req = do
-  putStrLn $ "Received: " ++ show (rqBody req)
+  putStrLn $ "Received: " ++ rqBody req
 
   let command :: String = rqBody req
       runCommand img = case interpretCommand command img of
@@ -223,9 +223,6 @@ timeEvolution secElapsed w = do
   (event, w') <- emitFakeEvent w
   handleEventStep (evolveImage secElapsed) event w'
 
-  -- onImage (return . evolution secElapsed) w
-  -- return w
-
 drawWorld :: World -> IO Picture
 drawWorld World{..} = do
   ServerImage image <- readMVar wImage
@@ -285,10 +282,10 @@ httpOptions :: [OptDescr (Config -> Config)]
 httpOptions =
   [ Option ['h'] ["host"]
       (ReqArg (\h opts -> opts { srvHost = h }) "HOST")
-      "Server host (localhost by default)"
+      "Server host (\"localhost\" default)."
   , Option ['p'] ["port"]
       (ReqArg (\p opts -> opts { srvPort = fromInteger (read p) }) "PORT")
-      "Port to listen (8888 by default)"
+      "Port to listen (8888 default)."
   ]
 
 parseHttpOptions :: IO Config

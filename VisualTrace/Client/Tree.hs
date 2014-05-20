@@ -1,17 +1,14 @@
-{-# LANGUAGE OverloadedStrings  #-}
+{-# language
+   RecordWildCards
+ #-}
 
 module VisualTrace.Client.Tree(main) where
 
-import Network.HTTP.Conduit
-import qualified Data.ByteString.Lazy as BS
-import qualified Codec.Binary.UTF8.String as UTF8
 import Data.List
-import Text.Printf
-import Control.Concurrent
-import Control.Monad
 import System.Random
 
 import VisualTrace.Protocol.Graph
+import qualified VisualTrace.Client as Client
 
 mkTree :: [Command]
 mkTree = go 4 1
@@ -36,29 +33,18 @@ sendTree = do
         return $ InsertNode node pos
       setRndPos command = return command
 
-      sendWithDelay msg = do
-        threadDelay 100000
-        send msg
-
   nodes' <- mapM setRndPos nodes
-  mapM_ (sendWithDelay . show) nodes'
-  mapM_ (sendWithDelay . show) edges
+  mapM_ send nodes'
+  mapM_ send edges
+
+send :: Show a => a -> IO ()
+send = Client.sendWithDelay 0.3 "localhost" 8888
 
 rndPoint :: (Float,Float) -> (Float,Float) -> IO (Float, Float)
 rndPoint xr yr = do
   x <- randomRIO xr
   y <- randomRIO yr
   return (x,y)
-
-send :: String -> IO ()
-send msg = do
-  putStrLn $ printf "Sending %s..." msg
-  req <- parseUrl "http://localhost:8888"
-  let req' = req { method = "POST"
-                 , requestBody = RequestBodyLBS $ BS.pack $
-                                 UTF8.encode msg
-                 }
-  void $ withManager $ httpLbs req'
 
 main :: IO ()
 main = sendTree
