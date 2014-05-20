@@ -75,3 +75,57 @@ executable vtserver
   hs-source-dirs: src
   main-is: VisualTrace/VTServer.hs
   ghc-options: -Wall -Werror -O2 -main-is VisualTrace.VTServer
+
+executable vtgraph
+  build-depends:
+    base,
+    mtl,
+    random,
+    bytestring,
+    GLUT,
+    containers,
+    http-server,
+    network,
+    gloss,
+    http-conduit,
+    utf8-string,
+    url
+  hs-source-dirs: src
+  main-is: VisualTrace/Client/Graph.hs
+  ghc-options: -Wall -Werror -O2 -main-is VisualTrace.Client.Graph
+
+executable vtprogressbar
+  build-depends:
+    base,
+    mtl,
+    random,
+    bytestring,
+    GLUT,
+    containers,
+    http-server,
+    network,
+    gloss,
+    http-conduit,
+    utf8-string,
+    url
+  hs-source-dirs: src
+  main-is: VisualTrace/Client/ProgressBar.hs
+  ghc-options: -Wall -Werror -O2 -main-is VisualTrace.Client.ProgressBar
+
+executable vtparallelcomputation
+  build-depends:
+    base,
+    mtl,
+    random,
+    bytestring,
+    GLUT,
+    containers,
+    http-server,
+    network,
+    gloss,
+    http-conduit,
+    utf8-string,
+    url
+  hs-source-dirs: src
+  main-is: VisualTrace/Client/Computations.hs
+  ghc-options: -Wall -Werror -O2 -main-is VisualTrace.Client.Computations
