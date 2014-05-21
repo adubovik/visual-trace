@@ -12,22 +12,21 @@ module VisualTrace.Protocol.Graph
  , Command(..)
  ) where
 
-import VisualTrace.Data.Graph.Dynamic.Annotated
-import VisualTrace.Data.Graph.Layout
-
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Maybe(fromMaybe)
 import Data.Typeable
 
 import Graphics.Gloss.Interface.Pure.Game(MouseButton(..))
-import VisualTrace.Data.EventInfo.Utils
-import VisualTrace.Data.EventInfo.StdLib
 import Graphics.Gloss.Data.Point
 import qualified Graphics.Gloss as G
+
+import VisualTrace.Data.Graph.Dynamic.Annotated
+import VisualTrace.Data.Graph.Layout
+import VisualTrace.Data.EventInfo.Utils
+import VisualTrace.Data.EventInfo.StdLib
 import VisualTrace.Data.PictureF
 import VisualTrace.Data.Feedback
-
 import qualified VisualTrace.Protocol.Image as I
 
 data Command = InsertEdge Key Key

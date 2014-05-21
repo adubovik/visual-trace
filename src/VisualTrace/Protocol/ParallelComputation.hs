@@ -16,15 +16,15 @@ import Data.Maybe
 import Data.Typeable
 import qualified Data.Map as Map
 
-import qualified VisualTrace.Text as T
 import qualified Graphics.Gloss as G
+import Graphics.Gloss.Data.Point
+
+import qualified VisualTrace.Text as T
 import VisualTrace.Data.EventInfo.Utils
 import VisualTrace.Data.EventInfo.StdLib
-import Graphics.Gloss.Data.Point
 import VisualTrace.Data.PictureF
 import VisualTrace.Data.ColorRead(Color,fromColor,toColor)
 import VisualTrace.Data.Feedback
-
 import qualified VisualTrace.Protocol.Image as I
 
 -- Identifier of computation node

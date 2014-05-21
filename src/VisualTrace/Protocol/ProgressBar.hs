@@ -18,12 +18,11 @@ import Text.Printf
 
 import qualified Graphics.Gloss as G
 import Graphics.Gloss.Data.Point
+
 import VisualTrace.Data.PictureF
 import VisualTrace.Data.Feedback
-
 import VisualTrace.Data.EventInfo.Utils
 import VisualTrace.Data.EventInfo.StdLib
-
 import qualified VisualTrace.Protocol.Image as I
 
 data Command = Init ProgressBarId (Maybe Int)

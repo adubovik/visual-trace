@@ -4,43 +4,44 @@ license:       BSD3
 author:        Anton Dubovik
 cabal-version: >= 1.8
 synopsis:      Visual trace library
+location:      https://github.com/adubovik/visual-trace.git
 build-type:    Simple
 category:      Debug
 
 library
   build-depends:
-    base,
-    mtl,
-    random,
-    bytestring,
-    GLUT,
-    containers,
-    http-server,
-    network,
-    gloss,
-    http-conduit,
-    utf8-string,
-    url
+    base, containers, mtl, random,
+    GLUT, gloss,
+    http-conduit, http-server, network, url
+    utf8-string, bytestring,
   hs-source-dirs: src
   exposed-modules:
-    Control.Applicative.WrapMonadDual,
-    VisualTrace.VTServer,
     VisualTrace.Text,
     VisualTrace.Server,
+    VisualTrace.Client,
+
+    VisualTrace.Data.Feedback,
+    VisualTrace.Data.PictureF,
     VisualTrace.Data.EventInfo.StdLib,
     VisualTrace.Data.EventInfo.Utils,
-    VisualTrace.Data.Graph.Layout.Physics,
-    VisualTrace.Data.Graph.Dynamic,
     VisualTrace.Data.Graph.Dynamic.Annotated,
     VisualTrace.Data.Graph.Layout,
+    VisualTrace.Data.ColorRead,
+
+    VisualTrace.Protocol.ProgressBar,
+    VisualTrace.Protocol.Graph,
+    VisualTrace.Protocol.ParallelComputation,
+    VisualTrace.Protocol.Image
+  other-modules:
+    Control.Applicative.WrapMonadDual,
+    VisualTrace.VTServer,
+    VisualTrace.Data.Graph.Layout.Physics,
+    VisualTrace.Data.Graph.Dynamic,
     VisualTrace.Data.Ext,
     VisualTrace.Data.Fix,
     VisualTrace.Data.Ext.Utils,
-    VisualTrace.Data.PictureF,
     VisualTrace.Data.Matrix,
-    VisualTrace.Data.Feedback,
     VisualTrace.Data.EventInfo,
-    VisualTrace.Data.ColorRead,
     VisualTrace.Data.PictureF.Selection,
     VisualTrace.Data.PictureF.Trans,
     VisualTrace.Data.ViewState.Utils,
@@ -49,83 +50,45 @@ library
     VisualTrace.Client.Graph,
     VisualTrace.Client.Computations,
     VisualTrace.Client.Tree,
-    VisualTrace.Client,
-    VisualTrace.Protocol.ProgressBar,
-    VisualTrace.Protocol.Graph,
-    VisualTrace.Protocol.ParallelComputation,
-    VisualTrace.Protocol.Image,
     Debug.Utils
-  other-modules:
   ghc-options: -Wall -Werror -O2
 
-executable vtserver
+executable vt-server
   build-depends:
-    base,
-    mtl,
-    random,
-    bytestring,
-    GLUT,
-    containers,
-    http-server,
-    network,
-    gloss,
-    http-conduit,
-    utf8-string,
-    url
+    base, containers, mtl, random,
+    GLUT, gloss,
+    http-conduit, http-server, network, url
+    utf8-string, bytestring,
   hs-source-dirs: src
   main-is: VisualTrace/VTServer.hs
   ghc-options: -Wall -Werror -O2 -main-is VisualTrace.VTServer
 
-executable vtgraph
+executable vt-graph
   build-depends:
-    base,
-    mtl,
-    random,
-    bytestring,
-    GLUT,
-    containers,
-    http-server,
-    network,
-    gloss,
-    http-conduit,
-    utf8-string,
-    url
+    base, containers, mtl, random,
+    GLUT, gloss,
+    http-conduit, http-server, network, url
+    utf8-string, bytestring,
   hs-source-dirs: src
   main-is: VisualTrace/Client/Graph.hs
   ghc-options: -Wall -Werror -O2 -main-is VisualTrace.Client.Graph
 
-executable vtprogressbar
+executable vt-progressbar
   build-depends:
-    base,
-    mtl,
-    random,
-    bytestring,
-    GLUT,
-    containers,
-    http-server,
-    network,
-    gloss,
-    http-conduit,
-    utf8-string,
-    url
+    base, containers, mtl, random,
+    GLUT, gloss,
+    http-conduit, http-server, network, url
+    utf8-string, bytestring,
   hs-source-dirs: src
   main-is: VisualTrace/Client/ProgressBar.hs
   ghc-options: -Wall -Werror -O2 -main-is VisualTrace.Client.ProgressBar
 
-executable vtparallelcomputation
+executable vt-parallelcomputation
   build-depends:
-    base,
-    mtl,
-    random,
-    bytestring,
-    GLUT,
-    containers,
-    http-server,
-    network,
-    gloss,
-    http-conduit,
-    utf8-string,
-    url
+    base, containers, mtl, random,
+    GLUT, gloss,
+    http-conduit, http-server, network, url
+    utf8-string, bytestring,
   hs-source-dirs: src
   main-is: VisualTrace/Client/Computations.hs
   ghc-options: -Wall -Werror -O2 -main-is VisualTrace.Client.Computations
