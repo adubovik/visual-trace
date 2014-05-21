@@ -4,12 +4,9 @@
 
 module VisualTrace.Client.ProgressBar(main) where
 
-import System.Console.GetOpt
-import System.Environment
-
+import Options.Applicative
 import qualified Data.Map as Map
 import Control.Monad
-import Text.Printf
 
 import VisualTrace.Protocol.ProgressBar
 import qualified VisualTrace.Client as Client
@@ -51,32 +48,22 @@ data Config = Config
   { cfgBarBounds :: [Int]
   }
 
-defaultConfig :: Config
-defaultConfig = Config
-  { cfgBarBounds = [4,4,4]
-  }
+options :: Parser Config
+options = Config
+  <$> option
+      ( long "barBounds"
+     <> short 'b'
+     <> metavar "[INTEGER]"
+     <> help "List of progress bar bounds"
+     <> value [4,4,4]
+     <> showDefault )
 
-options :: [OptDescr (Config -> Config)]
-options =
-  [ Option ['b'] ["barBounds"]
-      (ReqArg (\i opts -> opts { cfgBarBounds = readSafe i }) "[INTEGER]")
-      "Bounds of progress bars ([4,4,4] default)."
-  ]
-  where
-    readSafe str = case reads str of
-      [] -> error $ "Can't parse " ++ str
-      (x,_):_ -> x
-
-getConfig :: IO Config
-getConfig = do
-  argv <- getArgs
-  pname <- getProgName
-  let header = printf "Usage: %s [OPTION...]" pname
-  case getOpt Permute options argv of
-    (o,_n,[] ) -> return $ foldl (flip id) defaultConfig o
-    (_,_,errs) -> ioError (userError (concat errs ++ usageInfo header options))
+opts :: ParserInfo Config
+opts = info
+         (helper <*> options)
+         fullDesc
 
 main :: IO ()
 main = do
-  Config{..} <- getConfig
+  Config{..} <- execParser opts
   runProgress cfgBarBounds

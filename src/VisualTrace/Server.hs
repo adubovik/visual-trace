@@ -12,12 +12,10 @@ module VisualTrace.Server
  ( runServer
  , runServerWithConfig
 
- , defaultHttpConfig
  , httpOptions
  ) where
 
-import System.Console.GetOpt
-import System.Environment
+import Options.Applicative
 import Network.HTTP.Server
 import Network.Socket
 import Network.URL
@@ -38,11 +36,9 @@ import VisualTrace.Data.PictureF.Selection(selectWithExt, select)
 import VisualTrace.Data.PictureF.Trans(toPicture)
 
 import Text.Printf
-import Data.Monoid
 import qualified Data.Map as Map
 import qualified Data.Typeable as Typeable
 
-import Control.Applicative
 import Control.Concurrent.MVar
 import Control.Concurrent
 import Control.Monad
@@ -92,8 +88,8 @@ handler :: World -> SockAddr -> URL -> Request String -> IO (Response String)
 handler world _addr _url req = do
   putStrLn $ "Received: " ++ rqBody req
 
-  let command :: String = rqBody req
-      runCommand img = case interpretCommand command img of
+  let cmd :: String = rqBody req
+      runCommand img = case interpretCommand cmd img of
         Left  msg  -> do
           putStrLn $ "Parse error: " ++ msg
           return img
@@ -261,7 +257,10 @@ initWorld img = do
 
 runServerWithConfig :: Image i => Config -> i -> IO ()
 runServerWithConfig config initImg = do
-  putStrLn $ printf "Server is running at %s:%s..." (srvHost config) (show (srvPort config))
+  putStrLn $
+    printf "Server is running at %s:%s..."
+              (srvHost config)
+              (show (srvPort config))
   world <- initWorld initImg
 
   void $ forkIO (render world)
@@ -269,30 +268,25 @@ runServerWithConfig config initImg = do
 
 runServer :: Image i => i -> IO ()
 runServer initImg = do
-  conf <- parseHttpOptions
+  conf <- execParser opts
   runServerWithConfig conf initImg
+  where
+    opts = info
+             (helper <*> httpOptions)
+             fullDesc
 
-defaultHttpConfig :: Config
-defaultHttpConfig =
-  defaultConfig { srvHost = "localhost"
-                , srvPort = 8888
-                }
-
-httpOptions :: [OptDescr (Config -> Config)]
-httpOptions =
-  [ Option ['h'] ["host"]
-      (ReqArg (\h opts -> opts { srvHost = h }) "HOST")
-      "Server host (\"localhost\" default)."
-  , Option ['p'] ["port"]
-      (ReqArg (\p opts -> opts { srvPort = fromInteger (read p) }) "PORT")
-      "Port to listen (8888 default)."
-  ]
-
-parseHttpOptions :: IO Config
-parseHttpOptions = do
-  argv <- getArgs
-  pname <- getProgName
-  let header = printf "Usage: %s [OPTION...]" pname
-  case getOpt Permute httpOptions argv of
-    (o,_n,[] ) -> return $ foldl (flip id) defaultHttpConfig o
-    (_,_,errs) -> ioError (userError (concat errs ++ usageInfo header httpOptions))
+httpOptions :: Parser Config
+httpOptions = Config
+ <$> pure (srvLog defaultConfig)
+ <*> option
+     ( long "host"
+    <> short 'h'
+    <> help "Server host"
+    <> value "localhost"
+    <> showDefault )
+ <*> fmap fromInteger (option
+     ( long "port"
+    <> short 'p'
+    <> help "Port to listen"
+    <> value 8888
+    <> showDefault ))

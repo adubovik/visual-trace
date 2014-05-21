@@ -27,4 +27,5 @@ send host port msg = do
                  , HTTP.requestBody = HTTP.RequestBodyLBS $ BS.pack $
                                       UTF8.encode $ show msg
                  }
+  -- TODO: handle exceptions...
   void $ HTTP.withManager $ HTTP.httpLbs req'

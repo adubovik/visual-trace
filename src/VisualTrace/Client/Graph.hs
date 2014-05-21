@@ -5,13 +5,11 @@
 
 module VisualTrace.Client.Graph(main) where
 
-import System.Console.GetOpt
+import Options.Applicative
 import System.Random
-import System.Environment
 
 import qualified Data.Set as Set
 import Data.List
-import Text.Printf
 
 import VisualTrace.Protocol.Graph
 import qualified VisualTrace.Client as Client
@@ -58,46 +56,42 @@ data Config = Config
   , cfgEdges :: Int
   }
 
-defaultConfig :: Config
-defaultConfig = Config
-  { cfgNodes = 15
-  , cfgEdges = 50
-  }
+options :: Parser Config
+options = Config
+  <$> option
+      ( long "nodes"
+     <> short 'n'
+     <> metavar "INTEGER"
+     <> help "Number of nodes in graph"
+     <> value 15
+     <> showDefault )
+  <*> option
+      ( long "edges"
+     <> short 'e'
+     <> metavar "INTEGER"
+     <> help "Number of edges in graph"
+     <> value 50
+     <> showDefault )
 
-options :: [OptDescr (Config -> Config)]
-options =
-  [ Option ['e'] ["edges"]
-      (ReqArg (\i opts -> opts { cfgEdges = readSafe i }) "INTEGER")
-      "Number of edges in graph (50 default)."
-  , Option ['n'] ["nodes"]
-      (ReqArg (\i opts -> opts { cfgNodes = readSafe i }) "INTEGER")
-      "Number of nodes in graph (15 default)."
-  ]
+opts :: ParserInfo Config
+opts = info
+         (helper <*> options)
+         (fullDesc <> progDesc desc)
   where
-    readSafe str = case reads str of
-      [] -> error $ "Can't parse " ++ str
-      (x,_):_ -> x
-
-getConfig :: IO Config
-getConfig = do
-  argv <- getArgs
-  pname <- getProgName
-  let header = printf "Usage: %s [OPTION...]" pname
-  case getOpt Permute options argv of
-    (o,_n,[] ) -> return $ foldl (flip id) defaultConfig o
-    (_,_,errs) -> ioError (userError (concat errs ++ usageInfo header options))
+    desc = "Generate random graph and send it node-by-node, \
+           \edge-by-edge to a server."
 
 main :: IO ()
 main = do
-  Config{..} <- getConfig
+  Config{..} <- execParser opts
 
   let initGr = (Set.fromList [0..cfgNodes-1], Set.empty)
 
       go :: (Set.Set Int, Set.Set Int) -> Int -> IO ()
       go _ 0 = return ()
       go gr cnt = do
-        (gr', command) <- genRndCommand gr
-        send command
+        (gr', cmd) <- genRndCommand gr
+        send cmd
         go gr' (cnt-1)
 
   go initGr cfgEdges

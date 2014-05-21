@@ -5,11 +5,9 @@
 
 module VisualTrace.Client.Computations(main) where
 
-import System.Console.GetOpt
+import Options.Applicative
 import System.Random
-import System.Environment
 
-import Control.Applicative
 import Data.List
 import Data.Function
 import Text.Printf
@@ -61,37 +59,30 @@ data Config = Config
   , cfgNodes      :: Int
   }
 
-defaultConfig :: Config
-defaultConfig = Config
-  { cfgWusPerNode = 10
-  , cfgNodes      = 6
-  }
+options :: Parser Config
+options = Config
+  <$> option
+      ( long "wusPerNode"
+     <> short 'w'
+     <> metavar "INTEGER"
+     <> help "Number of workunits per single computational node"
+     <> value 10
+     <> showDefault )
+  <*> option
+      ( long "compNodes"
+     <> short 'n'
+     <> metavar "INTEGER"
+     <> help "Number of computational nodes"
+     <> value 6
+     <> showDefault )
 
-options :: [OptDescr (Config -> Config)]
-options =
-  [ Option ['w'] ["wusPerNode"]
-      (ReqArg (\i opts -> opts { cfgWusPerNode = readSafe i }) "INTEGER")
-      "Number of workunits per single computational node (10 default)."
-  , Option ['n'] ["compNodes"]
-      (ReqArg (\i opts -> opts { cfgNodes      = readSafe i }) "INTEGER")
-      "Number of computational nodes (6 default)."
-  ]
-  where
-    readSafe str = case reads str of
-      [] -> error $ "Can't parse " ++ str
-      (x,_):_ -> x
-
-getConfig :: IO Config
-getConfig = do
-  argv <- getArgs
-  pname <- getProgName
-  let header = printf "Usage: %s [OPTION...]" pname
-  case getOpt Permute options argv of
-    (o,_n,[] ) -> return $ foldl (flip id) defaultConfig o
-    (_,_,errs) -> ioError (userError (concat errs ++ usageInfo header options))
+opts :: ParserInfo Config
+opts = info
+         (helper <*> options)
+         fullDesc
 
 main :: IO ()
 main = do
-  Config{..} <- getConfig
+  Config{..} <- execParser opts
   commands <- mkCommands cfgNodes cfgWusPerNode
   mapM_ send commands
