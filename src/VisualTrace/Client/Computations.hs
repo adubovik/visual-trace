@@ -7,11 +7,12 @@ module VisualTrace.Client.Computations(main) where
 
 import Options.Applicative
 import System.Random
-
 import Data.List
 import Data.Function
 import Text.Printf
+import qualified Network.HTTP.Server as HTTP
 
+import VisualTrace.Server
 import qualified VisualTrace.Client as Client
 import VisualTrace.Data.ColorRead(fromColor)
 import Graphics.Gloss.Data.Color
@@ -51,12 +52,10 @@ mkCommands nodes wusPerNode = do
   let commands' = map snd $ sortBy (compare `on` fst) $ concat commands
   return commands'
 
-send :: Show a => a -> IO ()
-send = Client.sendWithDelay 0.1 "localhost" 8888
-
 data Config = Config
   { cfgWusPerNode :: Int
   , cfgNodes      :: Int
+  , cfgHttpConfig :: HTTP.Config
   }
 
 options :: Parser Config
@@ -75,6 +74,7 @@ options = Config
      <> help "Number of computational nodes"
      <> value 6
      <> showDefault )
+  <*> httpOptions
 
 opts :: ParserInfo Config
 opts = info
@@ -84,5 +84,10 @@ opts = info
 main :: IO ()
 main = do
   Config{..} <- execParser opts
+
+  let send :: Show a => HTTP.Config -> a -> IO ()
+      send config a = Client.delaySec 0.1 >>
+                      Client.sendWithConfig config a
+
   commands <- mkCommands cfgNodes cfgWusPerNode
-  mapM_ send commands
+  mapM_ (send cfgHttpConfig) commands

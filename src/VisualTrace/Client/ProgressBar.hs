@@ -1,26 +1,30 @@
 {-# language
    RecordWildCards
+ , Rank2Types
  #-}
 
 module VisualTrace.Client.ProgressBar(main) where
 
 import Options.Applicative
-import qualified Data.Map as Map
 import Control.Monad
+import qualified Data.Map as Map
+import qualified Network.HTTP.Server as HTTP
 
+import VisualTrace.Server
 import VisualTrace.Protocol.ProgressBar
 import qualified VisualTrace.Client as Client
 
 type ProgressState = Map.Map Int (Int,Int)
+type Sender = forall a. Show a => a -> IO ()
 
-progressStep :: Int -> ProgressState -> IO (ProgressState, Bool)
-progressStep curr bounds
+progressStep :: Sender -> Int -> ProgressState -> IO (ProgressState, Bool)
+progressStep send curr bounds
   | curr == Map.size bounds
   = return (bounds, False)
   | val == limit = do
     let bounds' = Map.adjust (const (0,limit)) curr bounds
     send $ Init (show curr) Nothing
-    progressStep (curr+1) bounds'
+    progressStep send (curr+1) bounds'
   | otherwise = do
     let bounds' = Map.adjust (const (val+1,limit)) curr bounds
     send $ Done (show curr) (Just $ "Done " ++ show val) 1
@@ -28,24 +32,22 @@ progressStep curr bounds
   where
     (val,limit) = bounds Map.! curr
 
-runProgress :: [Int] -> IO ()
-runProgress limits = do
+runProgress :: Sender -> [Int] -> IO ()
+runProgress send limits = do
   let progressIds = take (length limits) [0..]
       bounds = Map.fromList $ [ (i,(0,l))
                               | (i,l) <- zip progressIds limits
                               ]
       go bs = do
-        (bs', continue) <- progressStep 0 bs
+        (bs', continue) <- progressStep send 0 bs
         when continue $ go bs'
 
   mapM_ (\idx -> send $ Init (show idx) Nothing) progressIds
   go bounds
 
-send :: Show a => a -> IO ()
-send = Client.sendWithDelay 0.3 "localhost" 8888
-
 data Config = Config
-  { cfgBarBounds :: [Int]
+  { cfgBarBounds  :: [Int]
+  , cfgHttpConfig :: HTTP.Config
   }
 
 options :: Parser Config
@@ -57,6 +59,7 @@ options = Config
      <> help "List of progress bar bounds"
      <> value [4,4,4]
      <> showDefault )
+  <*> httpOptions
 
 opts :: ParserInfo Config
 opts = info
@@ -66,4 +69,8 @@ opts = info
 main :: IO ()
 main = do
   Config{..} <- execParser opts
-  runProgress cfgBarBounds
+  let send :: HTTP.Config -> Sender
+      send config a = Client.delaySec 0.3 >>
+                      Client.sendWithConfig config a
+
+  runProgress (send cfgHttpConfig) cfgBarBounds

@@ -7,10 +7,11 @@ module VisualTrace.Client.Graph(main) where
 
 import Options.Applicative
 import System.Random
-
-import qualified Data.Set as Set
 import Data.List
+import qualified Network.HTTP.Server as HTTP
+import qualified Data.Set as Set
 
+import VisualTrace.Server
 import VisualTrace.Protocol.Graph
 import qualified VisualTrace.Client as Client
 
@@ -48,12 +49,10 @@ genRndCommand (restNodes, graphNodes) = do
     node2 <- rndElem nodeList'
     return $ ((restNodes, graphNodes), InsertEdge node1 node2)
 
-send :: Show a => a -> IO ()
-send = Client.sendWithDelay 0.5 "localhost" 8888
-
 data Config = Config
   { cfgNodes :: Int
   , cfgEdges :: Int
+  , cfgHttpConfig :: HTTP.Config
   }
 
 options :: Parser Config
@@ -72,6 +71,7 @@ options = Config
      <> help "Number of edges in graph"
      <> value 50
      <> showDefault )
+  <*> httpOptions
 
 opts :: ParserInfo Config
 opts = info
@@ -85,13 +85,17 @@ main :: IO ()
 main = do
   Config{..} <- execParser opts
 
+  let send :: Show a => HTTP.Config -> a -> IO ()
+      send config a = Client.delaySec 0.3 >>
+                      Client.sendWithConfig config a
+
   let initGr = (Set.fromList [0..cfgNodes-1], Set.empty)
 
       go :: (Set.Set Int, Set.Set Int) -> Int -> IO ()
       go _ 0 = return ()
       go gr cnt = do
         (gr', cmd) <- genRndCommand gr
-        send cmd
+        send cfgHttpConfig cmd
         go gr' (cnt-1)
 
   go initGr cfgEdges

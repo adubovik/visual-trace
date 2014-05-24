@@ -21,19 +21,20 @@ data Image = ParallelComputation
   deriving (Read, Enum, Bounded, Show)
 
 data VTConfig = VTConfig
-  { vtImage      :: Maybe Image
+  { vtImage      :: Image
   , vtHttpConfig :: HTTP.Config
   }
 
 vtOptions :: Parser VTConfig
 vtOptions = VTConfig
- <$> nullOption
-     ( reader ((Just <$>) <$> auto)
-    <> value Nothing
-    <> long "image"
-    <> short 'i'
-    <> help ("Image to use. One of " ++ show [(minBound::Image)..maxBound]))
- <*> httpOptions
+  <$> option
+      ( long "image"
+     <> short 'i'
+     <> help ("Image to use. One of " ++ imageRange)
+     <> noArgError ShowHelpText)
+  <*> httpOptions
+  where
+    imageRange = show [(minBound::Image)..maxBound]
 
 opts :: ParserInfo VTConfig
 opts = info
@@ -45,12 +46,9 @@ main = do
   VTConfig{..} <- execParser opts
 
   case vtImage of
-    Nothing -> error "You should specify image."
-    Just image ->
-      case image of
-        Graph               ->
-          runServerWithConfig vtHttpConfig (Image.initImage :: Graph.Image)
-        ProgressBar         ->
-          runServerWithConfig vtHttpConfig (Image.initImage :: ProgressBar.Image)
-        ParallelComputation ->
-          runServerWithConfig vtHttpConfig (Image.initImage :: ParallelComputation.Image)
+    Graph               ->
+      runServerWithConfig vtHttpConfig (Image.initImage :: Graph.Image)
+    ProgressBar         ->
+      runServerWithConfig vtHttpConfig (Image.initImage :: ProgressBar.Image)
+    ParallelComputation ->
+      runServerWithConfig vtHttpConfig (Image.initImage :: ParallelComputation.Image)

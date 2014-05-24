@@ -281,12 +281,14 @@ httpOptions = Config
  <*> option
      ( long "host"
     <> short 'h'
+    <> metavar "STRING"
     <> help "Server host"
     <> value "localhost"
     <> showDefault )
  <*> fmap fromInteger (option
      ( long "port"
     <> short 'p'
+    <> metavar "INTEGER"
     <> help "Port to listen"
     <> value 8888
     <> showDefault ))
