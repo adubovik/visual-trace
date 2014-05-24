@@ -1,5 +1,6 @@
 {-# LANGUAGE
    OverloadedStrings
+ , RecordWildCards
  #-}
 
 module VisualTrace.Client
@@ -8,22 +9,21 @@ module VisualTrace.Client
  , delaySec
  ) where
 
-import qualified Network.HTTP.Server as HTTPServ
+import Control.Concurrent
+import Control.Monad
+import Text.Printf
+
 import qualified Network.HTTP.Conduit as HTTP
 import qualified Data.ByteString.Lazy as BS
 import qualified Codec.Binary.UTF8.String as UTF8
-import Text.Printf
 
-import Control.Concurrent
-import Control.Monad
+import VisualTrace.HTTPConfig
 
 delaySec :: Float -> IO ()
 delaySec sec = threadDelay (round $ sec * 10**6)
 
-sendWithConfig :: Show a => HTTPServ.Config -> a -> IO ()
-sendWithConfig config =
-  send (               HTTPServ.srvHost config)
-       (fromIntegral $ HTTPServ.srvPort config)
+sendWithConfig :: Show a => HTTPConfig -> a -> IO ()
+sendWithConfig HTTPConfig{..} = send httpHost httpPort
 
 send :: Show a => String -> Int -> a -> IO ()
 send host port msg = do

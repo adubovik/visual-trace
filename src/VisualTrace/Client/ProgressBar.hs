@@ -8,9 +8,8 @@ module VisualTrace.Client.ProgressBar(main) where
 import Options.Applicative
 import Control.Monad
 import qualified Data.Map as Map
-import qualified Network.HTTP.Server as HTTP
 
-import VisualTrace.Server
+import VisualTrace.HTTPConfig
 import VisualTrace.Protocol.ProgressBar
 import qualified VisualTrace.Client as Client
 
@@ -47,7 +46,7 @@ runProgress send limits = do
 
 data Config = Config
   { cfgBarBounds  :: [Int]
-  , cfgHttpConfig :: HTTP.Config
+  , cfgHttpConfig :: HTTPConfig
   }
 
 options :: Parser Config
@@ -69,7 +68,7 @@ opts = info
 main :: IO ()
 main = do
   Config{..} <- execParser opts
-  let send :: HTTP.Config -> Sender
+  let send :: HTTPConfig -> Sender
       send config a = Client.delaySec 0.3 >>
                       Client.sendWithConfig config a
 

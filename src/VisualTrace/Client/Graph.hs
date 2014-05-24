@@ -8,10 +8,9 @@ module VisualTrace.Client.Graph(main) where
 import Options.Applicative
 import System.Random
 import Data.List
-import qualified Network.HTTP.Server as HTTP
 import qualified Data.Set as Set
 
-import VisualTrace.Server
+import VisualTrace.HTTPConfig
 import VisualTrace.Protocol.Graph
 import qualified VisualTrace.Client as Client
 
@@ -52,7 +51,7 @@ genRndCommand (restNodes, graphNodes) = do
 data Config = Config
   { cfgNodes :: Int
   , cfgEdges :: Int
-  , cfgHttpConfig :: HTTP.Config
+  , cfgHttpConfig :: HTTPConfig
   }
 
 options :: Parser Config
@@ -85,7 +84,7 @@ main :: IO ()
 main = do
   Config{..} <- execParser opts
 
-  let send :: Show a => HTTP.Config -> a -> IO ()
+  let send :: Show a => HTTPConfig -> a -> IO ()
       send config a = Client.delaySec 0.3 >>
                       Client.sendWithConfig config a
 

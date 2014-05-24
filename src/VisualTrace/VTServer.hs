@@ -7,9 +7,9 @@
 module VisualTrace.VTServer(main) where
 
 import Options.Applicative
-import qualified Network.HTTP.Server as HTTP
 
 import VisualTrace.Server
+import VisualTrace.HTTPConfig
 import qualified VisualTrace.Protocol.Image               as Image
 import qualified VisualTrace.Protocol.Graph               as Graph
 import qualified VisualTrace.Protocol.ProgressBar         as ProgressBar
@@ -22,7 +22,7 @@ data Image = ParallelComputation
 
 data VTConfig = VTConfig
   { vtImage      :: Image
-  , vtHttpConfig :: HTTP.Config
+  , vtHttpConfig :: HTTPConfig
   }
 
 vtOptions :: Parser VTConfig

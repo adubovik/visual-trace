@@ -8,9 +8,8 @@ module VisualTrace.Client.Tree(main) where
 import Options.Applicative
 import Data.List
 import System.Random
-import qualified Network.HTTP.Server as HTTP
 
-import VisualTrace.Server
+import VisualTrace.HTTPConfig
 import VisualTrace.Protocol.Graph
 import qualified VisualTrace.Client as Client
 
@@ -34,7 +33,7 @@ sendTree send maxForks = do
       setRndPos (InsertNode node _) = do
         pos <- rndPoint (-200,200) (-200,200)
         return $ InsertNode node pos
-      setRndPos command = return command
+      setRndPos cmd = return cmd
 
   nodes' <- mapM setRndPos nodes
   mapM_ send nodes'
@@ -48,7 +47,7 @@ rndPoint xr yr = do
 
 data Config = Config
   { cfgMaxForks   :: Int
-  , cfgHttpConfig :: HTTP.Config
+  , cfgHttpConfig :: HTTPConfig
   }
 
 options :: Parser Config
@@ -74,7 +73,7 @@ main :: IO ()
 main = do
   Config{..} <- execParser opts
 
-  let send :: Show a => HTTP.Config -> a -> IO ()
+  let send :: Show a => HTTPConfig -> a -> IO ()
       send config a = Client.delaySec 0.3 >>
                       Client.sendWithConfig config a
 

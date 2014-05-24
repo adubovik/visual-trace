@@ -10,9 +10,8 @@ import System.Random
 import Data.List
 import Data.Function
 import Text.Printf
-import qualified Network.HTTP.Server as HTTP
 
-import VisualTrace.Server
+import VisualTrace.HTTPConfig
 import qualified VisualTrace.Client as Client
 import VisualTrace.Data.ColorRead(fromColor)
 import Graphics.Gloss.Data.Color
@@ -55,7 +54,7 @@ mkCommands nodes wusPerNode = do
 data Config = Config
   { cfgWusPerNode :: Int
   , cfgNodes      :: Int
-  , cfgHttpConfig :: HTTP.Config
+  , cfgHttpConfig :: HTTPConfig
   }
 
 options :: Parser Config
@@ -85,7 +84,7 @@ main :: IO ()
 main = do
   Config{..} <- execParser opts
 
-  let send :: Show a => HTTP.Config -> a -> IO ()
+  let send :: Show a => HTTPConfig -> a -> IO ()
       send config a = Client.delaySec 0.1 >>
                       Client.sendWithConfig config a
 

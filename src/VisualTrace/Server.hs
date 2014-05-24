@@ -26,6 +26,7 @@ import qualified Graphics.UI.GLUT as GLUT
 import Graphics.Gloss.Interface.IO.Game
 import Graphics.Gloss.Data.ViewState hiding (Command)
 
+import VisualTrace.HTTPConfig
 import VisualTrace.Data.EventInfo
 import VisualTrace.Data.Ext
 import VisualTrace.Data.ViewState.Focus
@@ -255,40 +256,16 @@ initWorld img = do
     oRotate  = (CRotate , [])
     oRestore = (CRestore, [])
 
-runServerWithConfig :: Image i => Config -> i -> IO ()
+runServerWithConfig :: Image i => HTTPConfig -> i -> IO ()
 runServerWithConfig config initImg = do
   putStrLn $
-    printf "Server is running at %s:%s..."
-              (srvHost config)
-              (show (srvPort config))
+    printf "Server is running at %s..." (show config)
   world <- initWorld initImg
 
   void $ forkIO (render world)
-  serverWith config (handler world)
+  serverWith (toHTTPServerConfig config) (handler world)
 
 runServer :: Image i => i -> IO ()
 runServer initImg = do
-  conf <- execParser opts
+  conf <- execParser httpOptInfo
   runServerWithConfig conf initImg
-  where
-    opts = info
-             (helper <*> httpOptions)
-             fullDesc
-
-httpOptions :: Parser Config
-httpOptions = Config
- <$> pure (srvLog defaultConfig)
- <*> option
-     ( long "host"
-    <> short 'h'
-    <> metavar "STRING"
-    <> help "Server host"
-    <> value "localhost"
-    <> showDefault )
- <*> fmap fromInteger (option
-     ( long "port"
-    <> short 'p'
-    <> metavar "INTEGER"
-    <> help "Port to listen"
-    <> value 8888
-    <> showDefault ))
