@@ -20,14 +20,16 @@ library
     VisualTrace.Text,
     VisualTrace.Server,
     VisualTrace.Client,
+    VisualTrace.HTTPConfig,
 
     VisualTrace.Data.Feedback,
     VisualTrace.Data.PictureF,
     VisualTrace.Data.EventInfo.StdLib,
     VisualTrace.Data.EventInfo.Utils,
+    VisualTrace.Data.ColorRead,
+
     VisualTrace.Data.Graph.Dynamic.Annotated,
     VisualTrace.Data.Graph.Layout,
-    VisualTrace.Data.ColorRead,
 
     VisualTrace.Protocol.ProgressBar,
     VisualTrace.Protocol.Graph,
