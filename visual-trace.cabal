@@ -4,15 +4,18 @@ license:       BSD3
 author:        Anton Dubovik
 cabal-version: >= 1.8
 synopsis:      Visual trace library
-location:      https://github.com/adubovik/visual-trace.git
 build-type:    Simple
 category:      Debug
+
+source-repository head
+  type:     git
+  location: https://github.com/adubovik/visual-trace.git
 
 library
   build-depends:
     base, containers, mtl, random,
     GLUT, gloss,
-    http-conduit, http-server, network, url
+    http-conduit, http-server, network, url,
     utf8-string, bytestring,
     optparse-applicative
   hs-source-dirs: src
@@ -60,18 +63,29 @@ executable vt-server
   build-depends:
     base, containers, mtl, random,
     GLUT, gloss,
-    http-conduit, http-server, network, url
+    http-conduit, http-server, network, url,
     utf8-string, bytestring,
     optparse-applicative
   hs-source-dirs: src
   main-is: VisualTrace/VTServer.hs
   ghc-options: -Wall -Werror -O2 -main-is VisualTrace.VTServer
 
+executable vt-server-prof
+  build-depends:
+    base, containers, mtl, random,
+    GLUT, gloss,
+    http-conduit, http-server, network, url,
+    utf8-string, bytestring,
+    optparse-applicative
+  hs-source-dirs: src
+  main-is: VisualTrace/VTServer.hs
+  ghc-options: -main-is VisualTrace.VTServer -prof -fprof-auto -rtsopts
+
 executable vt-graph
   build-depends:
     base, containers, mtl, random,
     GLUT, gloss,
-    http-conduit, http-server, network, url
+    http-conduit, http-server, network, url,
     utf8-string, bytestring,
     optparse-applicative
   hs-source-dirs: src
@@ -82,7 +96,7 @@ executable vt-progressbar
   build-depends:
     base, containers, mtl, random,
     GLUT, gloss,
-    http-conduit, http-server, network, url
+    http-conduit, http-server, network, url,
     utf8-string, bytestring,
     optparse-applicative
   hs-source-dirs: src
@@ -93,7 +107,7 @@ executable vt-parallelcomputation
   build-depends:
     base, containers, mtl, random,
     GLUT, gloss,
-    http-conduit, http-server, network, url
+    http-conduit, http-server, network, url,
     utf8-string, bytestring,
     optparse-applicative
   hs-source-dirs: src
