@@ -198,6 +198,7 @@ eventHandler e@(EventMotion _) w = do
 
 eventHandler (EventKey (Char 'r') Down _mod _pos) w@World{..} = do
   ServerImage image <- readMVar wImage
+      -- TODO: cache `getPictureExt` calls in `OptImage` as well
   let imageExt = getPictureExt $ drawImage viewPort image
       focusExt = enlargeExt 1.1 1.1 imageExt
 
@@ -224,14 +225,16 @@ drawWorld :: World -> IO Picture
 drawWorld World{..} = do
   ServerImage image <- readMVar wImage
   let selectImage pic = case wMousePos of
-        Nothing       -> pic
-        Just mousePos -> snd $ selectWithExt mousePos pic
+        Nothing       -> Nothing
+        Just mousePos -> case selectWithExt mousePos pic of
+          (Nothing,   _) -> Nothing
+          (Just _ ,pic') -> Just pic'
 
-      picture = selectImage $ drawImage viewPort image
+      picture = case selectImage (drawImage viewPort image) of
+        Nothing  -> draw viewPort image
+        Just pic -> toPicture pic
 
-  return $
-    applyViewPortToPicture viewPort $
-      toPicture picture
+  return $ applyViewPortToPicture viewPort picture
   where
     viewPort = viewStateViewPort wViewState
 

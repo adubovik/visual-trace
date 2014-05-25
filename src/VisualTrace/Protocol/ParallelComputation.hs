@@ -88,6 +88,25 @@ instance I.Image Image where
   evolveImage = evolution
   interpret = action
 
+-- For performance testing
+_mkBigImage :: Int -> Int -> Image
+_mkBigImage wusPerNode nNodes =
+  Image { nodeMap = mkNodeMap
+        , annotatedWorkunit = Nothing
+        }
+  where
+    mkNodeMap = Map.fromList [ (show nId, mkWorkUnits wusPerNode nId)
+                             | nId <- [(0::Int)..nNodes-1]
+                             ]
+
+    mkWorkUnits :: Int -> Int -> Workunits
+    mkWorkUnits n nIdx = Map.fromList
+      [ (wuName, Wu wuStat [(wuStat,wuName)])
+      | i <- [0..n-1]
+      , let wuName = show nIdx ++ "_" ++ show i
+      , let wuStat = (fromColor G.red, Just wuName)
+      ]
+
 onNodeMap :: (Map.Map NodeId Workunits -> Map.Map NodeId Workunits) ->
              (Image -> Image)
 onNodeMap f im = im { nodeMap = f (nodeMap im) }
