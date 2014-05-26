@@ -76,11 +76,10 @@ composeMatrices m1 m2 = Matrix { mTranslate = mTranslate m2 +
                                }
 
 applyMatrix :: Matrix -> Point -> Point
-applyMatrix m = ((mScale m) *) . ((mTranslate m) + )
+applyMatrix m = ((mScale m) *) . ((mTranslate m) +)
 
 -- invertMatrix m <> m == mempty
 -- invertMatrix . invertMatrix == id
 invertMatrix :: Matrix -> Matrix
 invertMatrix m = identityTranslate (invertTranslate $ mTranslate m) <>
-                 identityScale     (invertScale     $ mScale     m) <>
-                 mempty
+                 identityScale     (invertScale     $ mScale     m)

@@ -9,19 +9,23 @@ module VisualTrace.Data.PictureF.Trans
  ( toPicture
  , fromPicture
  , desugarePicture
+ , flattenPicture
  ) where
 
+import Control.Monad.Reader
+import Control.Monad.Writer
 import Control.Arrow
 import Control.Applicative
-import Data.Monoid
-import VisualTrace.Data.Fix
 import Data.List
 import Text.Printf
 
 import qualified Graphics.Gloss as G
+import Graphics.Gloss.Data.Color
 import Graphics.Gloss.Data.ViewPort
-import VisualTrace.Data.PictureF
 
+import VisualTrace.Data.Fix
+import VisualTrace.Data.Matrix
+import VisualTrace.Data.PictureF hiding (local)
 import VisualTrace.Data.Ext
 import VisualTrace.Data.Ext.Utils
 
@@ -69,6 +73,60 @@ desugarePicture viewPort =
   expandInsidePrimitives .
   expandVHCat .
   expandScreenCoordinates viewPort
+
+type FlatEnv = (Last Color, Matrix)
+type FlatM = ReaderT FlatEnv (Writer [PictureL])
+
+onMatrix :: (Matrix -> Matrix) -> FlatEnv -> FlatEnv
+onMatrix = second
+
+onColor :: (Last Color -> Last Color) -> FlatEnv -> FlatEnv
+onColor = first
+
+flattenPicture :: PictureL -> PictureL
+flattenPicture =
+  pictures .
+  snd . runWriter .
+  flip runReaderT mempty .
+  cata alg
+  where
+    tellPrimitive pic = do
+      (clr, matrix) <- ask
+      tell [applyMatrixToPrimitive (getLast clr) matrix pic]
+
+    applyMatrixToPrimitive :: Maybe Color -> Matrix -> PictureFL a -> PictureL
+    applyMatrixToPrimitive clr mat = toColor clr . toTransform . toPictureL
+      where
+        toPictureL = wrap . fmap (const blank)
+
+        toTransform = let (mx,my) = mTranslate mat
+                          (sx,sy) = mScale mat
+                      in scale     sx sy .
+                         translate mx my
+
+        toColor Nothing  = id
+        toColor (Just c) = color c
+
+    alg :: PictureFL (FlatM ()) -> FlatM ()
+    alg pic = case pic of
+      Blank  -> return ()
+      Line{} -> tellPrimitive pic
+      Arc{}  -> tellPrimitive pic
+      Text{} -> tellPrimitive pic
+
+      Translate x y p -> local (onMatrix (<> identityTranslate (x,y))) p
+      Scale     x y p -> local (onMatrix (<> identityScale     (x,y))) p
+      Color       c p -> local (onColor  (<> Last (Just c)          )) p
+
+      Pictures     ps -> sequence_ ps
+      SelectionTrigger _ p -> p
+
+      HCat{}            -> err "HCat"
+      VCat{}            -> err "VCat"
+      InsideRect{}      -> err "InsideRect"
+
+    err = error . printf "flattenPicture: %s primitive shouldn't \
+                         \appear at this stage."
 
 toPicture :: PictureL -> G.Picture
 toPicture = cata alg

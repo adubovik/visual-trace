@@ -34,7 +34,7 @@ class (Typeable a, Read (Command a)) => Image a where
   drawImage viewPort = desugarePicture viewPort . drawImageG
 
   draw :: ViewPort -> a -> G.Picture
-  draw viewPort = toPicture . drawImage viewPort
+  draw viewPort = toPicture . flattenPicture . drawImage viewPort
 
 type Pictures = (PictureG, Maybe PictureL, Maybe G.Picture)
 type PictureStorage a = IORef [(StableName a, Pictures)]
@@ -47,7 +47,7 @@ storeAndLookup storageRef optViewPort image = unsafePerformIO $ do
     Nothing -> do
       let picG = drawImageG image
           picL = flip desugarePicture picG <$> optViewPort
-          gpic = toPicture <$> picL
+          gpic = toPicture . flattenPicture <$> picL
           pics = (picG,picL,gpic)
       pushNewPic storageRef (name,pics)
       return pics
@@ -55,7 +55,7 @@ storeAndLookup storageRef optViewPort image = unsafePerformIO $ do
       return pics
     Just (picG,_,_) -> do
       let picL = flip desugarePicture picG <$> optViewPort
-          gpic = toPicture <$> picL
+          gpic = toPicture . flattenPicture <$> picL
           pics = (picG,picL,gpic)
       pushNewPic storageRef (name,pics)
       return pics
