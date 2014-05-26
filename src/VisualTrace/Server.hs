@@ -198,7 +198,7 @@ eventHandler e@(EventMotion _) w = do
 
 eventHandler (EventKey (Char 'r') Down _mod _pos) w@World{..} = do
   ServerImage image <- readMVar wImage
-      -- TODO: cache `getPictureExt` calls in `OptImage` as well
+      -- TODO: cache `getPictureExt` calls in `CachedImage` as well
   let imageExt = getPictureExt $ drawImage viewPort image
       focusExt = enlargeExt 1.1 1.1 imageExt
 

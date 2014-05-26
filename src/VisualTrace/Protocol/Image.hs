@@ -3,19 +3,19 @@
  , FlexibleContexts
  , DeriveDataTypeable
  , RecordWildCards
+ , CPP
  #-}
 
 module VisualTrace.Protocol.Image
  ( Image(..)
- , OptImage
+ , CachedImage
  , interpretCommand
  ) where
 
 import System.IO.Unsafe
 import System.Mem.StableName
-import Data.IORef
 import Data.Typeable(Typeable)
-import Control.Applicative
+import Data.IORef
 
 import qualified Graphics.Gloss as G
 import Graphics.Gloss.Data.ViewPort
@@ -31,76 +31,76 @@ class (Typeable a, Read (Command a)) => Image a where
   interpret :: Command a -> a -> a
 
   drawImage :: ViewPort -> a -> PictureL
-  drawImage viewPort = desugarePicture viewPort . drawImageG
+  drawImage = stdDrawImage
 
   draw :: ViewPort -> a -> G.Picture
-  draw viewPort = toPicture . flattenPicture . drawImage viewPort
+  draw = stdDraw
 
-type Pictures = (PictureG, Maybe PictureL, Maybe G.Picture)
-type PictureStorage a = IORef [(StableName a, Pictures)]
+stdDrawImage :: Image a => ViewPort -> a -> PictureL
+stdDrawImage viewPort = desugarePicture viewPort . drawImageG
 
-storeAndLookup :: Image a => PictureStorage a -> Maybe ViewPort -> a -> Pictures
-storeAndLookup storageRef optViewPort image = unsafePerformIO $ do
-  name <- makeStableName image
-  storage <- readIORef storageRef
-  case lookup name storage of
-    Nothing -> do
-      let picG = drawImageG image
-          picL = flip desugarePicture picG <$> optViewPort
-          gpic = toPicture . flattenPicture <$> picL
-          pics = (picG,picL,gpic)
-      pushNewPic storageRef (name,pics)
-      return pics
-    Just pics@(_,Just _,Just _) ->
-      return pics
-    Just (picG,_,_) -> do
-      let picL = flip desugarePicture picG <$> optViewPort
-          gpic = toPicture . flattenPicture <$> picL
-          pics = (picG,picL,gpic)
-      pushNewPic storageRef (name,pics)
-      return pics
-  where
-    pushNewPic :: PictureStorage a -> (StableName a, Pictures) -> IO ()
-    pushNewPic st pics = modifyIORef st (take storageLimit . (pics :))
+stdDraw :: Image a => ViewPort -> a -> G.Picture
+stdDraw viewPort = toPicture . flattenPicture . drawImage viewPort
 
-    storageLimit :: Int
-    storageLimit = 1
+type Cache b a = IORef [(StableName a, b)]
 
-data OptImage a = OptImage
-  { imageCurrent   :: !a
-  , pictureStorage :: !(PictureStorage a)
+data CachedImage a = CachedImage
+  { imageCurrent :: !a
+  , cachePicG :: !(Cache PictureG a)
+  , cachePicL :: !(Cache PictureL a)
+  , cacheGPic :: !(Cache G.Picture a)
   }
   deriving Typeable
 
-onCurrectImage :: (a -> a) -> OptImage a -> OptImage a
+cache :: Image a => a -> Cache b a -> b -> b
+cache image cacheRef newVal = unsafePerformIO $ do
+  name <- makeStableName image
+  cacheDict <- readIORef cacheRef
+  case lookup name cacheDict of
+    Nothing -> do
+      pushNewVal cacheRef (name, newVal)
+      return newVal
+    Just oldVal -> do
+      return oldVal
+  where
+    pushNewVal :: Cache b a -> (StableName a, b) -> IO ()
+    pushNewVal ref val = modifyIORef ref (take cacheLimit . (val :))
+
+    cacheLimit :: Int
+    cacheLimit = 1
+
+-- FIXME: INLINE doesn't work o_O.
+-- Creates same IORef for each call of `_initCache`
+-- even if `b` type variable is instantiated to different types.
+_initCache :: Cache b a
+_initCache = unsafePerformIO $ newIORef []
+{-# INLINE _initCache #-}
+
+#define initCache (unsafePerformIO $ newIORef [])
+
+onCurrectImage :: (a -> a) -> CachedImage a -> CachedImage a
 onCurrectImage f im = im { imageCurrent = f (imageCurrent im) }
 
-instance Image a => Image (OptImage a) where
-  type Command (OptImage a) = Command a
+instance Image a => Image (CachedImage a) where
+  type Command (CachedImage a) = Command a
 
-  initImage = OptImage { imageCurrent   = initImage
-                       , pictureStorage = initStorage
-                       }
-    where
-      initStorage :: PictureStorage a
-      initStorage = unsafePerformIO $ newIORef []
+  initImage = CachedImage { imageCurrent = initImage
+                          , cachePicG = initCache
+                          , cachePicL = initCache
+                          , cacheGPic = initCache
+                          }
 
   evolveImage secElapsed = onCurrectImage (evolveImage secElapsed)
   interpret command      = onCurrectImage (interpret command)
 
-  drawImageG OptImage{..} =
-    let (picG,_,_) = storeAndLookup pictureStorage Nothing imageCurrent
-    in picG
+  drawImageG CachedImage{..} =
+    cache imageCurrent cachePicG (drawImageG imageCurrent)
 
-  drawImage viewPort OptImage{..} =
-    let (_,Just picL,_) =
-          storeAndLookup pictureStorage (Just viewPort) imageCurrent
-    in picL
+  drawImage viewPort image@CachedImage{..} =
+    cache imageCurrent cachePicL (stdDrawImage viewPort image)
 
-  draw viewPort OptImage{..} =
-    let (_,_,Just gpic) =
-          storeAndLookup pictureStorage (Just viewPort) imageCurrent
-    in gpic
+  draw viewPort image@CachedImage{..} =
+    cache imageCurrent cacheGPic (stdDraw viewPort image)
 
 interpretCommand :: Image a => String -> a -> Either String a
 interpretCommand command img =
