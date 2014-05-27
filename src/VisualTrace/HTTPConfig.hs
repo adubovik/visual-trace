@@ -28,21 +28,18 @@ httpOptInfo = info
 
 httpOptions :: Parser HTTPConfig
 httpOptions = HTTPConfig
- <$> option
+ <$> strOption
      ( long "host"
-    <> short 'h'
     <> metavar "STRING"
     <> help "Server host"
     <> value "localhost"
     <> showDefault )
  <*> option
      ( long "port"
-    <> short 'p'
     <> metavar "INTEGER"
     <> help "Port to listen"
     <> value 8888
     <> showDefault )
-
 
 toHTTPServerConfig :: HTTPConfig -> HTTP.Config
 toHTTPServerConfig HTTPConfig{..} =
