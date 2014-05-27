@@ -9,9 +9,8 @@ import Options.Applicative
 import Control.Monad
 import qualified Data.Map as Map
 
-import VisualTrace.HTTPConfig
 import VisualTrace.Protocol.ProgressBar
-import qualified VisualTrace.Client as Client
+import VisualTrace.Client hiding (send)
 
 type ProgressState = Map.Map Int (Int,Int)
 type Sender = forall a. Show a => a -> IO ()
@@ -69,7 +68,7 @@ main :: IO ()
 main = do
   Config{..} <- execParser opts
   let send :: HTTPConfig -> Sender
-      send config a = Client.delaySec 0.3 >>
-                      Client.sendWithConfig config a
+      send config a = delaySec 0.3 >>
+                      sendWithConfig config a
 
   runProgress (send cfgHttpConfig) cfgBarBounds

@@ -10,9 +10,8 @@ import System.Random
 import Data.List
 import qualified Data.Set as Set
 
-import VisualTrace.HTTPConfig
 import VisualTrace.Protocol.Graph
-import qualified VisualTrace.Client as Client
+import VisualTrace.Client hiding (send)
 
 rndPoint :: (Float,Float) -> (Float,Float) -> IO (Float, Float)
 rndPoint xr yr = do
@@ -85,8 +84,8 @@ main = do
   Config{..} <- execParser opts
 
   let send :: Show a => HTTPConfig -> a -> IO ()
-      send config a = Client.delaySec 0.3 >>
-                      Client.sendWithConfig config a
+      send config a = delaySec 0.3 >>
+                      sendWithConfig config a
 
   let initGr = (Set.fromList [0..cfgNodes-1], Set.empty)
 

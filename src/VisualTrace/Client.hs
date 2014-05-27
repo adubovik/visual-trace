@@ -7,8 +7,12 @@ module VisualTrace.Client
  ( send
  , sendWithConfig
  , delaySec
+
+ , httpOptions
+ , HTTPConfig(..)
  ) where
 
+import Options.Applicative
 import Control.Concurrent
 import Control.Monad
 import Text.Printf
@@ -17,7 +21,11 @@ import qualified Network.HTTP.Conduit as HTTP
 import qualified Data.ByteString.Lazy as BS
 import qualified Codec.Binary.UTF8.String as UTF8
 
-import VisualTrace.HTTPConfig
+import VisualTrace.HTTPConfig(HTTPConfig(..),Side(..))
+import qualified VisualTrace.HTTPConfig as HTTPConfig
+
+httpOptions :: Parser HTTPConfig
+httpOptions = HTTPConfig.httpOptions Client
 
 delaySec :: Float -> IO ()
 delaySec sec = threadDelay (round $ sec * 10**6)

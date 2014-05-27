@@ -23,7 +23,6 @@ library
     VisualTrace.Text,
     VisualTrace.Server,
     VisualTrace.Client,
-    VisualTrace.HTTPConfig,
 
     VisualTrace.Data.Feedback,
     VisualTrace.Data.PictureF,
@@ -56,6 +55,7 @@ library
     VisualTrace.Client.Graph,
     VisualTrace.Client.Computations,
     VisualTrace.Client.Tree,
+    VisualTrace.HTTPConfig,
     Debug.Utils
   ghc-options: -Wall -Werror -O2
 

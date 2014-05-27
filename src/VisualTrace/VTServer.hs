@@ -9,7 +9,6 @@ module VisualTrace.VTServer(main) where
 import Options.Applicative
 
 import VisualTrace.Server
-import VisualTrace.HTTPConfig
 import qualified VisualTrace.Protocol.Image               as Image
 import qualified VisualTrace.Protocol.Graph               as Graph
 import qualified VisualTrace.Protocol.ProgressBar         as ProgressBar

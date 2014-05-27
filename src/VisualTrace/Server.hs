@@ -13,6 +13,7 @@ module VisualTrace.Server
  , runServerWithConfig
 
  , httpOptions
+ , HTTPConfig(..)
  ) where
 
 import Options.Applicative
@@ -26,7 +27,9 @@ import qualified Graphics.UI.GLUT as GLUT
 import Graphics.Gloss.Interface.IO.Game
 import Graphics.Gloss.Data.ViewState hiding (Command)
 
-import VisualTrace.HTTPConfig
+import VisualTrace.HTTPConfig(HTTPConfig(..),Side(..),toHTTPServerConfig)
+import qualified VisualTrace.HTTPConfig as HTTPConfig
+
 import VisualTrace.Data.EventInfo
 import VisualTrace.Data.Ext
 import VisualTrace.Data.ViewState.Focus
@@ -265,7 +268,10 @@ runServerWithConfig config initImg = do
   void $ forkIO (render world)
   serverWith (toHTTPServerConfig config) (handler world)
 
+httpOptions :: Parser HTTPConfig
+httpOptions = HTTPConfig.httpOptions Server
+
 runServer :: Image i => i -> IO ()
 runServer initImg = do
-  conf <- execParser httpOptInfo
+  conf <- execParser (HTTPConfig.httpOptInfo Server)
   runServerWithConfig conf initImg

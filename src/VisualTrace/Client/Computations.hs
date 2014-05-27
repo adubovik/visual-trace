@@ -11,8 +11,7 @@ import Data.List
 import Data.Function
 import Text.Printf
 
-import VisualTrace.HTTPConfig
-import qualified VisualTrace.Client as Client
+import VisualTrace.Client hiding (send)
 import VisualTrace.Data.ColorRead(fromColor)
 import Graphics.Gloss.Data.Color
 
@@ -85,8 +84,8 @@ main = do
   Config{..} <- execParser opts
 
   let send :: Show a => HTTPConfig -> a -> IO ()
-      send config a = Client.delaySec 0.1 >>
-                      Client.sendWithConfig config a
+      send config a = delaySec 0.1 >>
+                      sendWithConfig config a
 
   commands <- mkCommands cfgNodes cfgWusPerNode
   mapM_ (send cfgHttpConfig) commands

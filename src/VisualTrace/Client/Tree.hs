@@ -9,9 +9,8 @@ import Options.Applicative
 import Data.List
 import System.Random
 
-import VisualTrace.HTTPConfig
 import VisualTrace.Protocol.Graph
-import qualified VisualTrace.Client as Client
+import VisualTrace.Client hiding (send)
 
 type Sender = forall a. Show a => a -> IO ()
 
@@ -74,7 +73,7 @@ main = do
   Config{..} <- execParser opts
 
   let send :: Show a => HTTPConfig -> a -> IO ()
-      send config a = Client.delaySec 0.3 >>
-                      Client.sendWithConfig config a
+      send config a = delaySec 0.3 >>
+                      sendWithConfig config a
 
   sendTree (send cfgHttpConfig) cfgMaxForks
