@@ -80,7 +80,7 @@ opts = info
          fullDesc
 
 main :: IO ()
-main = do
+main = mainWrapper $ do
   Config{..} <- execParser opts
 
   let send :: Show a => HTTPConfig -> a -> IO ()

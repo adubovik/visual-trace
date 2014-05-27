@@ -10,6 +10,8 @@ module VisualTrace.Client
 
  , httpOptions
  , HTTPConfig(..)
+
+ , mainWrapper
  ) where
 
 import Options.Applicative
@@ -17,6 +19,7 @@ import Control.Concurrent
 import Control.Monad
 import Text.Printf
 
+import Network.Socket(withSocketsDo)
 import qualified Network.HTTP.Conduit as HTTP
 import qualified Data.ByteString.Lazy as BS
 import qualified Codec.Binary.UTF8.String as UTF8
@@ -42,3 +45,6 @@ send host port msg = do
                  }
   -- TODO: handle exceptions...
   void $ HTTP.withManager $ HTTP.httpLbs req'
+
+mainWrapper :: IO a -> IO a
+mainWrapper = withSocketsDo

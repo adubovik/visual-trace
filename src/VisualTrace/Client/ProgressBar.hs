@@ -65,7 +65,7 @@ opts = info
          fullDesc
 
 main :: IO ()
-main = do
+main = mainWrapper $ do
   Config{..} <- execParser opts
   let send :: HTTPConfig -> Sender
       send config a = delaySec 0.3 >>
