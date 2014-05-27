@@ -14,7 +14,7 @@ module VisualTrace.Protocol.Image
 
 import System.IO.Unsafe
 import System.Mem.StableName
-import Data.Typeable(Typeable)
+import Data.Typeable(Typeable, Typeable1, cast)
 import Data.IORef
 
 import qualified Graphics.Gloss as G
@@ -25,6 +25,7 @@ import VisualTrace.Data.PictureF
 
 class (Typeable a, Read (Command a)) => Image a where
   type Command a :: *
+
   initImage :: a
   drawImageG :: a -> PictureG
   evolveImage :: Float -> a -> a
@@ -35,6 +36,12 @@ class (Typeable a, Read (Command a)) => Image a where
 
   draw :: ViewPort -> a -> G.Picture
   draw = stdDraw
+
+  onBaseImage :: (Monad m, Typeable b, Typeable1 m) =>
+                 (b -> m b) -> (a -> m a)
+  onBaseImage f a = case cast f of
+    Just f' -> f' a
+    Nothing -> return a
 
 stdDrawImage :: Image a => ViewPort -> a -> PictureL
 stdDrawImage viewPort = desugarePicture viewPort . drawImageG
@@ -81,6 +88,11 @@ _initCache = unsafePerformIO $ newIORef []
 onCurrectImage :: (a -> a) -> CachedImage a -> CachedImage a
 onCurrectImage f im = im { imageCurrent = f (imageCurrent im) }
 
+onCurrectImageM :: Monad m => (a -> m a) -> CachedImage a -> m (CachedImage a)
+onCurrectImageM f image@CachedImage{..} = do
+  imageCurrent' <- f imageCurrent
+  return $ image { imageCurrent = imageCurrent' }
+
 instance Image a => Image (CachedImage a) where
   type Command (CachedImage a) = Command a
 
@@ -101,6 +113,10 @@ instance Image a => Image (CachedImage a) where
 
   draw viewPort image@CachedImage{..} =
     cache imageCurrent cacheGPic (stdDraw viewPort image)
+
+  onBaseImage f a = case cast f of
+    Just f' -> onCurrectImageM f' a
+    Nothing -> return a
 
 interpretCommand :: Image a => String -> a -> Either String a
 interpretCommand command img =

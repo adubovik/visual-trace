@@ -63,9 +63,8 @@ traceSideEffect feedbackId focusCapture eventInfo _ =
                 (show eventInfo)
                 (show feedbackId)
 
-
-runFeedback :: Feedback a -> EventInfo -> (a -> IO a)
-runFeedback fb ef a = do
+runFeedback :: EventInfo -> Feedback a -> (a -> IO a)
+runFeedback ef fb a = do
   let focusCapture = fbFocusCapture fb ef
   fbSideEffect (fbComposable fb) focusCapture ef a
   return $ fbTransform (fbComposable fb) focusCapture ef a

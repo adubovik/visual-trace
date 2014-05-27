@@ -38,7 +38,6 @@ import VisualTrace.Data.PictureF.Trans(toPicture)
 
 import Text.Printf
 import qualified Data.Map as Map
-import qualified Data.Typeable as Typeable
 
 import Control.Concurrent.MVar
 import Control.Concurrent
@@ -162,10 +161,8 @@ handleEventStep imageEvolution event world@World{..} = do
 
       runFeedbackOnImage :: Image i => ExWrap Feedback -> EventInfo ->
                             i -> IO i
-      runFeedbackOnImage (ExWrap wrappedFeedback) eventInfo img =
-        case Typeable.cast wrappedFeedback of
-          Just fb -> runFeedback fb eventInfo img
-          Nothing -> return img
+      runFeedbackOnImage (ExWrap feedback) eventInfo =
+        onBaseImage (runFeedback eventInfo feedback)
 
   let focusSwith = oldFeedback /= newFeedback
       focusOld | focusSwith = FocusLost
