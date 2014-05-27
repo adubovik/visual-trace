@@ -47,10 +47,10 @@ main = do
   case vtImage of
     Graph               ->
       runServerWithConfig vtHttpConfig
-        (Image.initImage :: Image.CachedImage Graph.Image)
+        (Image.initImage :: Graph.Image)
     ProgressBar         ->
       runServerWithConfig vtHttpConfig
-        (Image.initImage :: Image.CachedImage ProgressBar.Image)
+        (Image.initImage :: ProgressBar.Image)
     ParallelComputation ->
       runServerWithConfig vtHttpConfig
-        (Image.initImage :: Image.CachedImage ParallelComputation.Image)
+        (Image.initImage :: ParallelComputation.Image)

@@ -47,6 +47,7 @@ import Control.Concurrent
 import Control.Monad
 
 import VisualTrace.Protocol.Image
+import VisualTrace.Protocol.Image.CachedImage
 
 type EventHandler = Event -> World -> IO World
 data ServerImage = forall i. Image i => ServerImage i
@@ -259,11 +260,10 @@ initWorld img = do
     oRotate  = (CRotate , [])
     oRestore = (CRestore, [])
 
-runServerWithConfig :: Image i => HTTPConfig -> i -> IO ()
-runServerWithConfig config initImg = do
-  putStrLn $
-    printf "Server is running at %s..." (show config)
-  world <- initWorld initImg
+runServerWithConfig :: forall i. Image i => HTTPConfig -> i -> IO ()
+runServerWithConfig config _initImg = do
+  putStrLn $ printf "Server is running at %s..." (show config)
+  world <- initWorld (initImage :: CachedImage i)
 
   void $ forkIO (render world)
   serverWith (toHTTPServerConfig config) (handler world)
