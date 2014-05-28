@@ -22,6 +22,13 @@ import Network.Socket
 import Network.URL
 import Codec.Binary.UTF8.String
 
+import Text.Printf
+import Data.Proxy
+import qualified Data.Map as Map
+import Control.Concurrent.MVar
+import Control.Concurrent
+import Control.Monad
+
 import qualified Graphics.UI.GLUT as GLUT
 
 import Graphics.Gloss.Interface.IO.Game
@@ -38,13 +45,6 @@ import qualified VisualTrace.Data.PictureF as PF
 import VisualTrace.Data.Feedback
 import VisualTrace.Data.PictureF.Selection(selectWithExt, select)
 import VisualTrace.Data.PictureF.Trans(toPicture)
-
-import Text.Printf
-import qualified Data.Map as Map
-
-import Control.Concurrent.MVar
-import Control.Concurrent
-import Control.Monad
 
 import VisualTrace.Protocol.Image
 import VisualTrace.Protocol.Image.CachedImage
@@ -260,8 +260,8 @@ initWorld img = do
     oRotate  = (CRotate , [])
     oRestore = (CRestore, [])
 
-runServerWithConfig :: forall i. Image i => HTTPConfig -> i -> IO ()
-runServerWithConfig config _initImg = do
+runServerWithConfig :: forall i. Image i => HTTPConfig -> Proxy i -> IO ()
+runServerWithConfig config Proxy = do
   putStrLn $ printf "Server is running at %s..." (show config)
   world <- initWorld (initImage :: CachedImage i)
 
@@ -271,7 +271,7 @@ runServerWithConfig config _initImg = do
 httpOptions :: Parser HTTPConfig
 httpOptions = HTTPConfig.httpOptions Server
 
-runServer :: Image i => i -> IO ()
-runServer initImg = do
+runServer :: Image i => Proxy i -> IO ()
+runServer proxy = do
   conf <- execParser (HTTPConfig.httpOptInfo Server)
-  runServerWithConfig conf initImg
+  runServerWithConfig conf proxy

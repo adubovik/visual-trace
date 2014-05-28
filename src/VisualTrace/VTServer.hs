@@ -7,9 +7,9 @@
 module VisualTrace.VTServer(main) where
 
 import Options.Applicative
+import Data.Proxy
 
 import VisualTrace.Server
-import qualified VisualTrace.Protocol.Image               as Image
 import qualified VisualTrace.Protocol.Graph               as Graph
 import qualified VisualTrace.Protocol.ProgressBar         as ProgressBar
 import qualified VisualTrace.Protocol.ParallelComputation as ParallelComputation
@@ -47,10 +47,10 @@ main = do
   case vtImage of
     Graph               ->
       runServerWithConfig vtHttpConfig
-        (Image.initImage :: Graph.Image)
+        (Proxy :: Proxy Graph.Image)
     ProgressBar         ->
       runServerWithConfig vtHttpConfig
-        (Image.initImage :: ProgressBar.Image)
+        (Proxy :: Proxy ProgressBar.Image)
     ParallelComputation ->
       runServerWithConfig vtHttpConfig
-        (Image.initImage :: ParallelComputation.Image)
+        (Proxy :: Proxy ParallelComputation.Image)
