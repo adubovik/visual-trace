@@ -15,7 +15,7 @@ library
   build-depends:
     base, containers, mtl, random, tagged,
     GLUT, gloss,
-    http-conduit, http-server, network, url,
+    http-conduit, http-server==1.0.4, network, url,
     utf8-string, bytestring,
     optparse-applicative
   hs-source-dirs: src
@@ -64,7 +64,7 @@ executable vt-server
   build-depends:
     base, containers, mtl, random, tagged,
     GLUT, gloss,
-    http-conduit, http-server, network, url,
+    http-conduit, http-server==1.0.4, network, url,
     utf8-string, bytestring,
     optparse-applicative
   hs-source-dirs: src
@@ -75,7 +75,7 @@ executable vt-server-prof
   build-depends:
     base, containers, mtl, random, tagged,
     GLUT, gloss,
-    http-conduit, http-server, network, url,
+    http-conduit, http-server==1.0.4, network, url,
     utf8-string, bytestring,
     optparse-applicative
   hs-source-dirs: src
@@ -86,7 +86,7 @@ executable vt-graph
   build-depends:
     base, containers, mtl, random, tagged,
     GLUT, gloss,
-    http-conduit, http-server, network, url,
+    http-conduit, http-server==1.0.4, network, url,
     utf8-string, bytestring,
     optparse-applicative
   hs-source-dirs: src
@@ -97,7 +97,7 @@ executable vt-progressbar
   build-depends:
     base, containers, mtl, random, tagged,
     GLUT, gloss,
-    http-conduit, http-server, network, url,
+    http-conduit, http-server==1.0.4, network, url,
     utf8-string, bytestring,
     optparse-applicative
   hs-source-dirs: src
@@ -108,7 +108,7 @@ executable vt-parallelcomputation
   build-depends:
     base, containers, mtl, random, tagged,
     GLUT, gloss,
-    http-conduit, http-server, network, url,
+    http-conduit, http-server==1.0.4, network, url,
     utf8-string, bytestring,
     optparse-applicative
   hs-source-dirs: src
