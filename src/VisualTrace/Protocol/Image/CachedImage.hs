@@ -9,7 +9,7 @@ module VisualTrace.Protocol.Image.CachedImage
  ( CachedImage
  ) where
 
-import Data.Typeable(Typeable, cast)
+import Data.Typeable(Typeable)
 import System.IO.Unsafe
 import System.Mem.StableName
 import Data.IORef
@@ -72,6 +72,7 @@ instance Image a => Image (CachedImage a) where
 
   evolveImage secElapsed = onCurrectImage (evolveImage secElapsed)
   interpret command      = onCurrectImage (interpret command)
+  onBaseImage f          = onCurrectImageM (onBaseImage f)
 
   drawImageG CachedImage{..} =
     cache imageCurrent cachePicG (drawImageG imageCurrent)
@@ -81,8 +82,4 @@ instance Image a => Image (CachedImage a) where
 
   draw viewPort image@CachedImage{..} =
     cache imageCurrent cacheGPic (stdDraw viewPort image)
-
-  onBaseImage f a = case cast f of
-    Just f' -> onCurrectImageM f' a
-    Nothing -> return a
 
