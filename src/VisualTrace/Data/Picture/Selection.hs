@@ -1,169 +1,95 @@
-{-# language
-   ViewPatterns
- , TupleSections
- , TypeOperators
- , ScopedTypeVariables
- , Rank2Types
- , RecordWildCards
- , DoAndIfThenElse
- #-}
-
 module VisualTrace.Data.Picture.Selection (
    select
  , selectWithExt
+ , selectWithBorder
  ) where
 
 import qualified Data.Foldable as Foldable
 import qualified Data.Traversable as Traversable
-import VisualTrace.Data.Fix
 import Data.Monoid
-import Data.Maybe
 
-import Control.Arrow
-import Control.Monad.State
+import Control.Monad.Reader
+import Control.Monad.Writer
 import Control.Applicative
-import Control.Applicative.WrapMonadDual
 
 import Graphics.Gloss(yellow, Point)
-import VisualTrace.Data.Picture
+
+import VisualTrace.Data.Feedback
+import VisualTrace.Data.Fix
+import VisualTrace.Data.Picture hiding (local)
 import VisualTrace.Data.Ext
 import VisualTrace.Data.Ext.Utils
 import VisualTrace.Data.Matrix
-import Text.Printf
 
-type PictureS = PictureA Float SState
+type PictureE = PictureA Float Ext
 
-data SState = SState { selExt    :: Maybe Ext
-                     , selMatrix :: Maybe Matrix
-                     , selInExt  :: Maybe Bool
-                     }
+type FeedbackList = [(ExWrap Feedback, Ext)]
 
-instance Show SState where
-  show SState{..} = printf "\n(%s,%s,%s)\n"
-                    (maybe "-" show selExt)
-                    (maybe "-" show selMatrix)
-                    (maybe "-" show selInExt)
+select :: Point -> PictureL -> Maybe PictureL
+select = ((fst <$>).). selectWithExt
 
-initSState :: SState
-initSState = SState { selExt    = Nothing
-                    , selMatrix = Nothing
-                    , selInExt  = Nothing
-                    }
-
-evalSelectionInfo :: Point -> PictureL -> PictureS
-evalSelectionInfo point pic = pic3
+selectWithExt :: Point -> PictureL -> Maybe (PictureL, Ext)
+selectWithExt point picture = selectedPic
   where
-    pic0 :: PictureS
-    pic0 = annotateCata (const initSState) pic
+    selectedPic =
+      getFirst . mconcat .
+      map (isTriggerFeedback point) $
+      buildFeedbackList picture
 
-    pic1 :: PictureS
-    pic1 = annotateCata annExtAlg pic0
-      where
-        annExtAlg :: (SState, PictureF Float SState) -> SState
-        annExtAlg (oldState, picture) =
-          let newExt :: Maybe Ext = extAlg <$> Traversable.traverse selExt picture
-          in  oldState { selExt = newExt }
+    isTriggerFeedback :: Point -> (ExWrap Feedback, Ext) ->
+                         First (PictureL, Ext)
+    isTriggerFeedback p (fb, ext)
+      | pointInExt ext p = First $ Just (wrap $ SelectionTrigger fb blank, ext)
+      | otherwise = mempty
 
-    pic2 :: PictureS
-    pic2 = annotateAna matAlg ( (fst $ unFix pic1) { selMatrix = Just mempty }
-                              , pic1
-                              )
-      where
-        matAlg :: (SState, (SState, PictureFL (        PictureS))) ->
-                                    PictureFL (SState, PictureS)
-        matAlg (currState,(_oldState,picture)) =
-          let newMat = do
-                currMat <- selMatrix currState
-                return $ currMat <> getMatrix picture
-              amendMat p = let (st,_p') = unFix p
-                               st' = st { selMatrix = newMat }
-                           in  (st', p)
-          in  fmap amendMat picture
-
-    pic3 :: PictureS
-    pic3 = annotateCata inPicAlg pic2
-      where
-        inPicAlg :: (SState, PictureFL SState) -> SState
-        inPicAlg (oldState, _pic) =
-          let inExt = do
-                ext <- selExt oldState
-                mat <- selMatrix oldState
-                let localPoint = applyMatrix (invertMatrix mat) point
-                    isIn = pointInExt ext localPoint
-                return isIn
-          in oldState { selInExt = inExt }
-
-selectWithExt :: Point -> PictureL -> (Maybe PictureL, PictureL)
-selectWithExt point = select point extBorder
+-- Returns Feedback list in order from drawn last, to drawn first.
+-- So we have to trigger first feedback in the list that contains
+-- a given point.
+buildFeedbackList :: PictureL -> FeedbackList
+buildFeedbackList = reverse . feedbacks . annotateWithExt
   where
-    extBorder :: PictureL -> PictureL
-    extBorder pic = let ext = getPictureExt pic
-                    in pictures [ color yellow
-                                $ drawExt NoFill ext
-                                , pic
-                                ]
+    feedbacks :: PictureE -> FeedbackList
+    feedbacks = snd . runWriter .
+                para gatherFeedbacksAlg
 
--- TODO: It's actually a lens!
-select :: Point -> (PictureL -> PictureL) ->
-          PictureL -> (Maybe PictureL, PictureL)
-select point selectionTrans pic = pic'
+    gatherFeedbacksAlg :: PictureFL (Writer FeedbackList (), PictureE) ->
+                          Writer FeedbackList ()
+    gatherFeedbacksAlg (SelectionTrigger fb (_,pic)) = do
+      tell [(fb, getFixAnnotation pic)]
+    gatherFeedbacksAlg pic = do
+      Foldable.traverse_ fst pic
+
+annotateWithExt :: PictureL -> PictureE
+annotateWithExt = flip runReader mempty .
+                  cata annExtAlg
   where
-    pic' :: (Maybe PictureL, PictureL)
-    pic' = first getFirst $
-           paraWithAnnotation transAlg $
-           evalSelectionInfo point pic
-      where
-        transAlg :: SState ->
-                    PictureFL ((First PictureL, PictureL), PictureS) ->
-                               (First PictureL, PictureL)
-        transAlg currState picture =
-          let oldPic' = wrap $ deAnn . snd <$> picture
-              selPics = Foldable.fold $ fst . fst <$> picture
-              picture' = (first snd) <$> picture
-          in
-          first (<> selPics) $
-            case selInExt currState of
-              Just True -> if isSelectablePic picture
-                           then (First (Just oldPic'),) $
-                                selectionTrans $ oldPic'
-                           else (mempty,) $
-                                 wrap $ switchLastInExt picture'
-              _ -> (mempty, oldPic')
+    annExtAlg :: PictureFL (Reader Matrix PictureE) ->
+                 Reader Matrix PictureE
+    annExtAlg picture = do
+      matrix <- ask
+      -- picture' :: PictureFL PictureE
+      picture' <- local (<> getMatrix picture) $
+                    Traversable.sequence picture
 
-        switchLastInExt :: Traversable.Traversable f =>
-                           f (PictureL, PictureS) ->
-                           f (PictureL)
-        switchLastInExt f = flip evalState False .
-                            unwrapMonadDual .
-                            Traversable.sequenceA .
-                            (WrapMonadDual <$>) .
-                            (act <$>) $
-                            f
-          where
-            act :: (PictureL, PictureS) -> State Bool (PictureL)
-            act (newPic, oldPic) = do
-              wasMatch <- get
-              let oldPic' = deAnn oldPic
-              if wasMatch
-              then return oldPic'
-              else do
-                let inExt = fromMaybe False . selInExt . fst $
-                            unFix oldPic
-                if inExt
-                then do
-                  put True
-                  return newPic
-                else
-                  return oldPic'
+      let extAlgPassive :: PictureFL Ext -> Ext
+          extAlgPassive (Translate _ _ e) = e
+          extAlgPassive (Scale     _ _ e) = e
+          extAlgPassive pe = extAlg pe
 
-        deAnn :: PictureA Float a -> PictureL
-        deAnn = annotateCata (const ())
+      let picExt = extAlgPassive $ fmap getFixAnnotation picture'
+          picExt' | isAtomPic picture' = applyMatrixToExt matrix picExt
+                  | otherwise          = picExt
 
-        isSelectablePic :: PictureF d a -> Bool
-        isSelectablePic Blank  = True
-        isSelectablePic Arc{}  = True
-        isSelectablePic Text{} = True
-        isSelectablePic SelectionTrigger{} = True
+      return $ Fix (picExt', picture')
 
-        isSelectablePic Line{} = False
-        isSelectablePic _      = False
+selectWithBorder :: Point -> PictureL -> PictureL
+selectWithBorder point picture = picture'
+  where
+    selectedPic = selectWithExt point picture
+
+    picture' = case selectedPic of
+      Nothing -> picture
+      Just (pic,ext) -> pictures [ picture
+                                 , color yellow $ drawExt NoFill ext
+                                 , pic
+                                 ]

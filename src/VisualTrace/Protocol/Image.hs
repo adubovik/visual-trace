@@ -33,6 +33,9 @@ class (Typeable a, Read (Command a)) => Image a where
   draw :: ViewPort -> a -> G.Picture
   draw = stdDraw
 
+  showImage :: a -> String
+  showImage _ = "showImage"
+
   onBaseImage :: (Monad m, Typeable b, Typeable1 m) =>
                  (b -> m b) -> (a -> m a)
   onBaseImage f a = case cast f of

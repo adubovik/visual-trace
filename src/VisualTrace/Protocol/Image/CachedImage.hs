@@ -79,3 +79,4 @@ instance Image a => Image (CachedImage a) where
   draw viewPort image@CachedImage{..} =
     cache imageCurrent cacheGPic (stdDraw viewPort image)
 
+  showImage image = "CachedImage:\n" ++ showImage (imageCurrent image)

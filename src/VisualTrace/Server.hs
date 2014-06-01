@@ -43,7 +43,7 @@ import VisualTrace.Data.ViewState.Focus
 import VisualTrace.Data.Ext.Utils
 import qualified VisualTrace.Data.Picture as PF
 import VisualTrace.Data.Feedback
-import VisualTrace.Data.Picture.Selection(selectWithExt, select)
+import VisualTrace.Data.Picture.Selection
 import VisualTrace.Data.Picture.Trans(toPicture)
 
 import VisualTrace.Protocol.Image
@@ -148,9 +148,7 @@ handleEventStep imageEvolution event world@World{..} = do
   oldPic <- queryImage (drawImage viewPort) world
   onImage (return . imageEvolution) world
 
-  let selectedPic = fst $
-                    select localMousePos id $
-                    oldPic
+  let selectedPic = select localMousePos oldPic
 
       newFeedback = case selectedPic of
         Just (PF.unWrap -> PF.SelectionTrigger fb _) -> Just fb
@@ -225,19 +223,15 @@ timeEvolution secElapsed w = do
 drawWorld :: World -> IO Picture
 drawWorld World{..} = do
   ServerImage image <- readMVar wImage
-  let selectImage pic = case wMousePos of
-        Nothing       -> Nothing
-        Just mousePos -> case selectWithExt mousePos pic of
-          (Nothing,   _) -> Nothing
-          (Just _ ,pic') -> Just pic'
 
-      picture = case selectImage (drawImage viewPort image) of
-        Nothing  -> draw viewPort image
-        Just pic -> toPicture pic
+  let viewPort = viewStateViewPort wViewState
+      picture = case wMousePos of
+        Nothing       -> draw viewPort image
+        Just mousePos -> toPicture $
+                         selectWithBorder mousePos $
+                         drawImage viewPort image
 
   return $ applyViewPortToPicture viewPort picture
-  where
-    viewPort = viewStateViewPort wViewState
 
 initWorld :: Image i => i -> IO World
 initWorld img = do

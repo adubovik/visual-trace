@@ -7,10 +7,12 @@
 module VisualTrace.Data.Ext.Utils (
    getPictureExt
  , getAtomExt
+ , isAtomPic
  , extAlg
  , drawExt
  ) where
 
+import Data.Maybe
 import Data.Monoid
 
 import VisualTrace.Data.Fix
@@ -36,7 +38,7 @@ getPictureExt :: PictureL -> Ext
 getPictureExt = cata extAlg
 
 extAlg :: PictureFL Ext -> Ext
-extAlg pic = getAtomExt pic <> alg pic
+extAlg pic = fromMaybe mempty (getAtomExt pic) <> alg pic
   where
     alg (Translate x y p)   = translateExt x y p
     alg (Scale x y p)       = scaleExt x y p
@@ -60,12 +62,15 @@ extAlg pic = getAtomExt pic <> alg pic
           False -> translateExt 0.0 (targetMinY - realMinY) ext
       | otherwise = ext
 
-getAtomExt :: PictureFL a -> Ext
-getAtomExt Blank                   = mempty
-getAtomExt (Line _ path          ) = mconcat $ map pointExt path
-getAtomExt (Arc Nothing   _ _ rad) = scaleExt     rad      rad  unitExt
-getAtomExt (Arc (Just th) _ _ rad) = scaleExt (th+rad) (th+rad) unitExt
+getAtomExt :: PictureFL a -> Maybe Ext
+getAtomExt Blank                   = Just $ mempty
+getAtomExt (Line _ path          ) = Just $ mconcat $ map pointExt path
+getAtomExt (Arc Nothing   _ _ rad) = Just $ scaleExt     rad      rad  unitExt
+getAtomExt (Arc (Just th) _ _ rad) = Just $ scaleExt (th+rad) (th+rad) unitExt
 getAtomExt (Text _ str           ) = let h = textHeight str
                                          w = textWidth  str
-                                     in  scaleExt w h unitExtQ1
-getAtomExt _                       = mempty
+                                     in  Just $ scaleExt w h unitExtQ1
+getAtomExt _                       = Nothing
+
+isAtomPic :: PictureFL a -> Bool
+isAtomPic = isJust . getAtomExt

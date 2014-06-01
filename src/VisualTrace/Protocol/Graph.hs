@@ -46,6 +46,7 @@ data Image = Image
 instance I.Image Image where
   type Command Image = Command
   initImage = initImage
+  showImage = show
   drawImageG = drawImageG
   evolveImage = evolveImage
   interpret = interpret

@@ -28,6 +28,9 @@ newtype Fix t f = Fix { unFix :: (t, f (Fix t f)) }
 
 deriving instance (Show t, Show (f (Fix t f))) => Show (Fix t f)
 
+getFixAnnotation :: Fix t f -> t
+getFixAnnotation = fst . unFix
+
 cata :: Functor f => (f a -> a) -> Fix x f -> a
 cata alg = alg . fmap (cata alg) . snd . unFix
 
