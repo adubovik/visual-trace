@@ -5,7 +5,7 @@
  , PatternGuards
  #-}
 
-module VisualTrace.Data.PictureF.Trans
+module VisualTrace.Data.Picture.Trans
  ( toPicture
  , fromPicture
  , desugarePicture
@@ -25,7 +25,7 @@ import Graphics.Gloss.Data.ViewPort
 
 import VisualTrace.Data.Fix
 import VisualTrace.Data.Matrix
-import VisualTrace.Data.PictureF hiding (local)
+import VisualTrace.Data.Picture hiding (local)
 import VisualTrace.Data.Ext
 import VisualTrace.Data.Ext.Utils
 

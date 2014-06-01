@@ -15,7 +15,7 @@ import Data.Monoid
 
 import VisualTrace.Data.Fix
 import VisualTrace.Data.Ext
-import VisualTrace.Data.PictureF
+import VisualTrace.Data.Picture
 import VisualTrace.Text(textWidth, textHeight)
 
 drawExt :: Filling -> Ext -> PictureL

@@ -16,8 +16,8 @@ import Data.Typeable(Typeable, Typeable1, cast)
 import qualified Graphics.Gloss as G
 import Graphics.Gloss.Data.ViewPort
 
-import VisualTrace.Data.PictureF.Trans
-import VisualTrace.Data.PictureF
+import VisualTrace.Data.Picture.Trans
+import VisualTrace.Data.Picture
 
 class (Typeable a, Read (Command a)) => Image a where
   type Command a :: *

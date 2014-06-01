@@ -12,8 +12,8 @@ import System.IO.Unsafe
 import Control.Arrow
 
 import Graphics.Gloss(Color)
-import VisualTrace.Data.PictureF hiding (text)
-import qualified VisualTrace.Data.PictureF as PF
+import VisualTrace.Data.Picture hiding (text)
+import qualified VisualTrace.Data.Picture as PF
 import qualified Graphics.UI.GLUT as GLUT
 
 -- Greatly depends on font (namely GLUT.Roman) that is

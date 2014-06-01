@@ -7,7 +7,7 @@ module VisualTrace.Data.EventInfo.StdLib
 import qualified Graphics.Gloss as G
 import qualified VisualTrace.Text as T
 import VisualTrace.Data.EventInfo.Utils
-import VisualTrace.Data.PictureF
+import VisualTrace.Data.Picture
 
 stdAnnotationDraw :: G.Point -> String -> PictureG
 stdAnnotationDraw mousePos annotationMsg =

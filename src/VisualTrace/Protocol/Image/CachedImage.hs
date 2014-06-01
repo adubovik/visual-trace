@@ -17,7 +17,7 @@ import Data.IORef
 import VisualTrace.Protocol.Image
 
 import qualified Graphics.Gloss as G
-import VisualTrace.Data.PictureF
+import VisualTrace.Data.Picture
 
 type Cache b a = IORef [(StableName a, b)]
 

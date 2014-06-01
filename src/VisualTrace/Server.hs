@@ -41,10 +41,10 @@ import VisualTrace.Data.EventInfo
 import VisualTrace.Data.Ext
 import VisualTrace.Data.ViewState.Focus
 import VisualTrace.Data.Ext.Utils
-import qualified VisualTrace.Data.PictureF as PF
+import qualified VisualTrace.Data.Picture as PF
 import VisualTrace.Data.Feedback
-import VisualTrace.Data.PictureF.Selection(selectWithExt, select)
-import VisualTrace.Data.PictureF.Trans(toPicture)
+import VisualTrace.Data.Picture.Selection(selectWithExt, select)
+import VisualTrace.Data.Picture.Trans(toPicture)
 
 import VisualTrace.Protocol.Image
 import VisualTrace.Protocol.Image.CachedImage

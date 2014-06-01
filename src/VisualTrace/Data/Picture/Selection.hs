@@ -8,7 +8,7 @@
  , DoAndIfThenElse
  #-}
 
-module VisualTrace.Data.PictureF.Selection (
+module VisualTrace.Data.Picture.Selection (
    select
  , selectWithExt
  ) where
@@ -25,7 +25,7 @@ import Control.Applicative
 import Control.Applicative.WrapMonadDual
 
 import Graphics.Gloss(yellow, Point)
-import VisualTrace.Data.PictureF
+import VisualTrace.Data.Picture
 import VisualTrace.Data.Ext
 import VisualTrace.Data.Ext.Utils
 import VisualTrace.Data.Matrix

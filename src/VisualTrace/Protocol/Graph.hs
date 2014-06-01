@@ -25,7 +25,7 @@ import VisualTrace.Data.Graph.Dynamic.Annotated
 import VisualTrace.Data.Graph.Layout
 import VisualTrace.Data.EventInfo.Utils
 import VisualTrace.Data.EventInfo.StdLib
-import VisualTrace.Data.PictureF
+import VisualTrace.Data.Picture
 import VisualTrace.Data.Feedback
 import qualified VisualTrace.Protocol.Image as I
 

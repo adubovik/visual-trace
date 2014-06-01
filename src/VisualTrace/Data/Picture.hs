@@ -5,7 +5,7 @@
  , TupleSections
  #-}
 
-module VisualTrace.Data.PictureF
+module VisualTrace.Data.Picture
  ( PictureF(..)
  , Picture
  , PictureA
