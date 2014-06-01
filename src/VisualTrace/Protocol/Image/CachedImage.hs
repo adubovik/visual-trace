@@ -46,11 +46,6 @@ cache image cacheRef newVal = unsafePerformIO $ do
     cacheLimit :: Int
     cacheLimit = 1
 
--- FIXME: it doesn't work. Application just hangs...
-_initCache :: () -> Cache b a
-_initCache = \() -> unsafePerformIO $ newIORef []
-{-# NOINLINE _initCache #-}
-
 #define initCache (unsafePerformIO $ newIORef [])
 
 onCurrectImage :: (a -> a) -> CachedImage a -> CachedImage a

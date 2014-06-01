@@ -71,17 +71,6 @@ executable vt-server
   main-is: VisualTrace/VTServer.hs
   ghc-options: -Wall -Werror -O2 -main-is VisualTrace.VTServer
 
-executable vt-server-prof
-  build-depends:
-    base, containers, mtl, random, tagged,
-    GLUT, gloss,
-    http-conduit, http-server==1.0.4, network, url,
-    utf8-string, bytestring,
-    optparse-applicative
-  hs-source-dirs: src
-  main-is: VisualTrace/VTServer.hs
-  ghc-options: -main-is VisualTrace.VTServer -prof -fprof-auto -rtsopts
-
 executable vt-graph
   build-depends:
     base, containers, mtl, random, tagged,

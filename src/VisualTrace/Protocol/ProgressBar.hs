@@ -39,10 +39,10 @@ data Image = Image
 
 instance I.Image Image where
   type Command Image = Command
-  initImage = mkImage
-  drawImageG = drawAnn'
-  evolveImage = evolution
-  interpret = action
+  initImage = initImage
+  drawImageG = drawImageG
+  evolveImage = evolveImage
+  interpret = interpret
 
 data ProgressBar = ProgressBar
   { count    :: Maybe Int
@@ -58,17 +58,17 @@ initProgressBar = ProgressBar
   , annots = []
   }
 
-mkImage :: Image
-mkImage = Image { progressBars = Map.empty
-                , cellAnnotation = Nothing
-                }
+initImage :: Image
+initImage = Image { progressBars = Map.empty
+                  , cellAnnotation = Nothing
+                  }
 
-action :: Command -> Image -> Image
-action (Init pid len) i =
+interpret :: Command -> Image -> Image
+interpret (Init pid len) i =
   let pb = initProgressBar { count = len }
   in  i { progressBars = Map.insert pid pb $ progressBars i }
 
-action (Done pid ann done) i =
+interpret (Done pid ann done) i =
   i { progressBars = Map.adjust (progress ann done) pid $ progressBars i }
   where
     progress a d pb =
@@ -76,10 +76,10 @@ action (Done pid ann done) i =
          , annots = annots pb ++ replicate d a
          }
 
-drawAnn' :: Image -> PictureG
-drawAnn' Image{..} = pictures $ [ progressBarPics
-                                , annotationPic
-                                ]
+drawImageG :: Image -> PictureG
+drawImageG Image{..} = pictures $ [ progressBarPics
+                                  , annotationPic
+                                  ]
   where
     progressBarPics =
       rvcat padding $
@@ -135,5 +135,5 @@ drawAnn' Image{..} = pictures $ [ progressBarPics
           image { cellAnnotation = Just (newPos, pid ++ ": " ++ ann) }
         rmAnnotation image = image { cellAnnotation = Nothing }
 
-evolution :: Float -> Image -> Image
-evolution = const id
+evolveImage :: Float -> Image -> Image
+evolveImage = const id

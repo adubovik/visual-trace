@@ -45,26 +45,26 @@ data Image = Image
 
 instance I.Image Image where
   type Command Image = Command
-  initImage = mkImage
-  drawImageG = drawAnn'
-  evolveImage = evolution
-  interpret = action
+  initImage = initImage
+  drawImageG = drawImageG
+  evolveImage = evolveImage
+  interpret = interpret
 
 onGraph :: (Graph -> Graph) -> (Image -> Image)
 onGraph f im = im { graph2d = f (graph2d im) }
 
-mkImage :: Image
-mkImage = Image { graph2d = empty
-                , nodeHighlighted = Nothing
-                , nodeAnnotation = Nothing
-                }
+initImage :: Image
+initImage = Image { graph2d = empty
+                  , nodeHighlighted = Nothing
+                  , nodeAnnotation = Nothing
+                  }
 
-action :: Command -> Image -> Image
-action (InsertEdge fr to)    = onGraph $ insertEdge ((fr,to),Nothing)
-action (InsertNode node pos) = onGraph $ insertNode (node, Just ((), pos))
+interpret :: Command -> Image -> Image
+interpret (InsertEdge fr to)    = onGraph $ insertEdge ((fr,to),Nothing)
+interpret (InsertNode node pos) = onGraph $ insertNode (node, Just ((), pos))
 
-drawAnn' :: Image -> PictureG
-drawAnn' Image{..} =
+drawImageG :: Image -> PictureG
+drawImageG Image{..} =
   pictures $
     edgePics ++
     nodePics ++
@@ -139,5 +139,5 @@ drawAnn' Image{..} =
               -- TODO: replace with "+ (newPos - oldPos)"
               onGraph (adjustNodePos (const newPos) node)
 
-evolution :: Float -> Image -> Image
-evolution _secElapsed = onGraph $ fst . applyForces stdForces
+evolveImage :: Float -> Image -> Image
+evolveImage _secElapsed = onGraph $ fst . applyForces stdForces

@@ -45,14 +45,14 @@ type Workunits = Map.Map WorkunitId Workunit
 type WorkunitStatus = (Color, Maybe String)
 type WorkunitMessage = String
 
-data Workunit = Wu
+data Workunit = Workunit
   { wuStatus :: WorkunitStatus
   -- Including the current status
   , wuHistory :: [(WorkunitStatus, WorkunitMessage)]
   }
   deriving (Show, Read, Eq, Ord, Typeable)
 
-data AnnotatedWorkunit = AWu
+data AnnotatedWorkunit = AnnotatedWorkunit
   { awuMousePos :: Point
   , awuWuId :: WorkunitId
   , awuWu :: Workunit
@@ -60,20 +60,20 @@ data AnnotatedWorkunit = AWu
   deriving (Show, Read, Eq, Ord, Typeable)
 
 instance Monoid Workunit where
-  mempty = Wu { wuStatus = (fromColor G.white, Nothing)
-              , wuHistory = []
-              }
-  a `mappend` b = Wu { wuStatus = wuStatus a
-                     , wuHistory = wuHistory b ++ wuHistory a
-                     }
+  mempty = Workunit { wuStatus = (fromColor G.white, Nothing)
+                    , wuHistory = []
+                    }
+  a `mappend` b = Workunit { wuStatus = wuStatus a
+                           , wuHistory = wuHistory b ++ wuHistory a
+                           }
 
-data Command = Workunit
+data Command = WorkunitStatus
   { wuNodeId :: NodeId
   , wuId     :: WorkunitId
   , wuSt     :: WorkunitStatus
   , wuMsg    :: WorkunitMessage
   }
-   deriving (Show, Read, Eq, Ord)
+  deriving (Show, Read, Eq, Ord)
 
 data Image = Image
   { nodeMap :: Map.Map NodeId Workunits
@@ -83,14 +83,14 @@ data Image = Image
 
 instance I.Image Image where
   type Command Image = Command
-  initImage = mkImage
-  drawImageG = drawAnn'
-  evolveImage = evolution
-  interpret = action
+  initImage = const initImage (mkBigImage 1000 6)
+  drawImageG = drawImageG
+  evolveImage = evolveImage
+  interpret = interpret
 
 -- For performance testing
-_mkBigImage :: Int -> Int -> Image
-_mkBigImage wusPerNode nNodes =
+mkBigImage :: Int -> Int -> Image
+mkBigImage wusPerNode nNodes =
   Image { nodeMap = mkNodeMap
         , annotatedWorkunit = Nothing
         }
@@ -101,7 +101,7 @@ _mkBigImage wusPerNode nNodes =
 
     mkWorkUnits :: Int -> Int -> Workunits
     mkWorkUnits n nIdx = Map.fromList
-      [ (wuName, Wu wuStat [(wuStat,wuName)])
+      [ (wuName, Workunit wuStat [(wuStat,wuName)])
       | i <- [0..n-1]
       , let wuName = show nIdx ++ "_" ++ show i
       , let wuStat = (fromColor G.red, Just wuName)
@@ -111,23 +111,23 @@ onNodeMap :: (Map.Map NodeId Workunits -> Map.Map NodeId Workunits) ->
              (Image -> Image)
 onNodeMap f im = im { nodeMap = f (nodeMap im) }
 
-mkImage :: Image
-mkImage = Image { nodeMap = Map.empty
-                , annotatedWorkunit = Nothing
-                }
-
-action :: Command -> Image -> Image
-action Workunit{..} = onNodeMap modifyNodeMap
-  where
-    workunit = Wu { wuStatus = wuSt
-                  , wuHistory = [(wuSt, wuMsg)]
+initImage :: Image
+initImage = Image { nodeMap = Map.empty
+                  , annotatedWorkunit = Nothing
                   }
+
+interpret :: Command -> Image -> Image
+interpret WorkunitStatus{..} = onNodeMap modifyNodeMap
+  where
+    workunit = Workunit { wuStatus = wuSt
+                        , wuHistory = [(wuSt, wuMsg)]
+                        }
 
     modifyNodeMap = Map.insertWith (Map.unionWith (<>)) wuNodeId
                       (Map.singleton wuId workunit)
 
-drawAnn' :: Image -> PictureG
-drawAnn' Image{..} =
+drawImageG :: Image -> PictureG
+drawImageG Image{..} =
   pictures
     [ rvcat nodesPadding $ map (uncurry drawNode) $ Map.toList nodeMap
     , maybe blank drawAnnotatedWorkunit annotatedWorkunit
@@ -154,7 +154,7 @@ drawAnn' Image{..} =
       in s' ++ suffix
 
     drawAnnotatedWorkunit :: AnnotatedWorkunit -> PictureG
-    drawAnnotatedWorkunit AWu{..} =
+    drawAnnotatedWorkunit AnnotatedWorkunit{..} =
         color G.black $
         translateAnnot $
         T.textsWithBackground (Just annotationFontHeight) textRows
@@ -167,7 +167,7 @@ drawAnn' Image{..} =
           let (x,y) = awuMousePos
           in translate (screen 5) (screen 5) .
              translate (local  x) (local  y)
-        Wu{..} = awuWu
+        Workunit{..} = awuWu
 
     drawNode :: NodeId -> Workunits -> PictureG
     drawNode nodeId workunits =
@@ -208,7 +208,7 @@ drawAnn' Image{..} =
           in  hd : splitAtChunks chunkSize tl
 
     drawWorkunit :: NodeId -> WorkunitId -> Workunit -> PictureG
-    drawWorkunit nodeId workunitId workunit@Wu{..} =
+    drawWorkunit nodeId workunitId workunit@Workunit{..} =
       selectionTrigger (wuFeedback nodeId workunitId workunit) $
       insideRect wuStatusRectPadding Fill (Just $ toColor clr) $
       drawText wuStatusTextHeight $
@@ -227,7 +227,7 @@ drawAnn' Image{..} =
         transform = stdAnnotationTransform mkAnnotation rmAnnotation
 
         mkAnnotation _oldPos newPos image =
-          image { annotatedWorkunit = Just $ AWu
+          image { annotatedWorkunit = Just $ AnnotatedWorkunit
                     { awuMousePos = newPos
                     , awuWuId = wuId
                     , awuWu = wu
@@ -236,5 +236,5 @@ drawAnn' Image{..} =
 
         rmAnnotation image = image { annotatedWorkunit = Nothing }
 
-evolution :: Float -> Image -> Image
-evolution _secElapsed = id
+evolveImage :: Float -> Image -> Image
+evolveImage _secElapsed = id

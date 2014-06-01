@@ -26,7 +26,7 @@ mkCommand nodeId wuid = do
 
       mkSubCommand ((statusMsg, clr), time) = do
         (time,) $
-          Workunit
+          WorkunitStatus
             nodeId'
             wuId'
             (fromColor clr, Just statusMsg)
