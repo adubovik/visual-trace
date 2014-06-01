@@ -55,17 +55,17 @@ module VisualTrace.Data.Picture
  , unWrap
  ) where
 
-import Graphics.Gloss.Data.Color
-import VisualTrace.Data.Matrix
-import VisualTrace.Data.Feedback
-
 import Data.Typeable(Typeable)
 import Data.Foldable(Foldable)
 import Data.Traversable(Traversable)
-import VisualTrace.Data.Fix
 import Data.Monoid
-
 import Control.Arrow((***))
+
+import Graphics.Gloss.Data.Color(Color)
+
+import VisualTrace.Data.Matrix
+import VisualTrace.Data.Feedback
+import VisualTrace.Data.Fix
 
 data Filling = Fill
              | NoFill

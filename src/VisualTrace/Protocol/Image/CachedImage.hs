@@ -9,14 +9,15 @@ module VisualTrace.Protocol.Image.CachedImage
  ( CachedImage
  ) where
 
+import Control.Monad.Identity
 import Data.Typeable(Typeable)
+import Data.IORef
 import System.IO.Unsafe
 import System.Mem.StableName
-import Data.IORef
-
-import VisualTrace.Protocol.Image
 
 import qualified Graphics.Gloss as G
+
+import VisualTrace.Protocol.Image
 import VisualTrace.Data.Picture
 
 type Cache b a = IORef [(StableName a, b)]
@@ -49,7 +50,7 @@ cache image cacheRef newVal = unsafePerformIO $ do
 #define initCache (unsafePerformIO $ newIORef [])
 
 onCurrectImage :: (a -> a) -> CachedImage a -> CachedImage a
-onCurrectImage f im = im { imageCurrent = f (imageCurrent im) }
+onCurrectImage f = runIdentity . onCurrectImageM (return . f)
 
 onCurrectImageM :: Monad m => (a -> m a) -> CachedImage a -> m (CachedImage a)
 onCurrectImageM f image@CachedImage{..} = do
