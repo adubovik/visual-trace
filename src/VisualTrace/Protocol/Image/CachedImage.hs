@@ -47,8 +47,6 @@ cache image cacheRef newVal = unsafePerformIO $ do
     cacheLimit :: Int
     cacheLimit = 1
 
-#define initCache (unsafePerformIO $ newIORef [])
-
 onCurrectImage :: (a -> a) -> CachedImage a -> CachedImage a
 onCurrectImage f = runIdentity . onCurrectImageM (return . f)
 
@@ -60,10 +58,14 @@ onCurrectImageM f image@CachedImage{..} = do
 instance Image a => Image (CachedImage a) where
   type Command (CachedImage a) = Command a
 
-  initImage = CachedImage { imageCurrent = initImage
-                          , cachePicG = initCache
-                          , cachePicL = initCache
-                          , cacheGPic = initCache
+  initImage = unsafePerformIO $ do
+    cPicG <- newIORef []
+    cPicL <- newIORef []
+    cGPic <- newIORef []
+    return $ CachedImage { imageCurrent = initImage
+                          , cachePicG = cPicG
+                          , cachePicL = cPicL
+                          , cacheGPic = cGPic
                           }
 
   evolveImage secElapsed = onCurrectImage (evolveImage secElapsed)

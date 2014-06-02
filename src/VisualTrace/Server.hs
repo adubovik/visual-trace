@@ -53,11 +53,11 @@ type EventHandler = Event -> World -> IO World
 data ServerImage = forall i. Image i => ServerImage i
 
 data World = World
- { wViewState :: ViewState
- , wImage     :: MVar ServerImage
- , wMousePos  :: Maybe Point
- , wLastFeedback :: Maybe (ExWrap Feedback)
- , wEventHistory :: EventHistory
+ { wViewState :: !ViewState
+ , wImage     :: !(MVar ServerImage)
+ , wMousePos  :: !(Maybe Point)
+ , wLastFeedback :: !(Maybe (ExWrap Feedback))
+ , wEventHistory :: !EventHistory
  }
 
 onServerImage :: Functor m => (forall i. Image i => i -> m i) ->
@@ -200,11 +200,10 @@ eventHandler (EventKey (Char 'r') Down _mod _pos) w@World{..} = do
       -- TODO: cache `getPictureExt` calls in `CachedImage` as well
   let imageExt = getPictureExt $ drawImage viewPort image
       focusExt = enlargeExt 1.1 1.1 imageExt
+      viewPort = viewStateViewPort wViewState
 
   windowSize <- getWindowSize
   onViewState (return . focusViewState focusExt windowSize) w
-  where
-    viewPort = viewStateViewPort wViewState
 
 eventHandler _e w = return w
 
