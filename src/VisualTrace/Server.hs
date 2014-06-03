@@ -30,7 +30,6 @@ import Control.Concurrent
 import Control.Monad
 
 import qualified Graphics.UI.GLUT as GLUT
-
 import Graphics.Gloss.Interface.IO.Game
 import Graphics.Gloss.Data.ViewState hiding (Command)
 
@@ -41,10 +40,8 @@ import VisualTrace.Data.EventInfo
 import VisualTrace.Data.Ext
 import VisualTrace.Data.ViewState.Focus
 import VisualTrace.Data.Ext.Utils
-import qualified VisualTrace.Data.Picture as PF
 import VisualTrace.Data.Feedback
-import VisualTrace.Data.Picture.Selection
-import VisualTrace.Data.Picture.Trans(toPicture)
+import VisualTrace.Data.Feedback.FeedbackStorage
 
 import VisualTrace.Protocol.Image
 import VisualTrace.Protocol.Image.CachedImage
@@ -55,7 +52,7 @@ data ServerImage = forall i. Image i => ServerImage i
 data World = World
  { wViewState :: !ViewState
  , wImage     :: !(MVar ServerImage)
- , wMousePos  :: !(Maybe Point)
+ , wMousePos  :: !Point
  , wLastFeedback :: !(Maybe (ExWrap Feedback))
  , wEventHistory :: !EventHistory
  }
@@ -145,15 +142,14 @@ handleEventStep imageEvolution event world@World{..} = do
       viewPort = viewStateViewPort wViewState
       localMousePos = invertViewPort viewPort mousePos
 
-  oldPic <- queryImage (drawImage viewPort) world
+  let getFeedback image = getFdFeedback <$>
+                          getFeedbackDataUnderPoint viewPort image
+                          localMousePos
+
+  let oldFeedback = wLastFeedback
+  newFeedback <- queryImage getFeedback world
+
   onImage (return . imageEvolution) world
-
-  let selectedPic = select localMousePos oldPic
-
-      newFeedback = case selectedPic of
-        Just (PF.unWrap -> PF.SelectionTrigger fb _) -> Just fb
-        _ -> Nothing
-      oldFeedback = wLastFeedback
 
   let runFeedbackWithEvent (Just feedBack@(ExWrap wFeedback)) eventInfo = do
         onImage (runFeedbackOnImage feedBack eventInfo) world
@@ -187,7 +183,7 @@ handleEventStep imageEvolution event world@World{..} = do
            void $ runFeedbackWithEvent newFeedback (mkEventInfo focusNew)
            return newFeedback
 
-  return $ world { wMousePos = Just localMousePos
+  return $ world { wMousePos = localMousePos
                  , wLastFeedback = newFeedback'
                  }
 
@@ -220,16 +216,10 @@ timeEvolution secElapsed w = do
   handleEventStep (evolveImage secElapsed) event w'
 
 drawWorld :: World -> IO Picture
-drawWorld World{..} = do
-  ServerImage image <- readMVar wImage
-
+drawWorld world@World{..} = do
   let viewPort = viewStateViewPort wViewState
-      picture = case wMousePos of
-        Nothing       -> draw viewPort image
-        Just mousePos -> toPicture $
-                         selectWithBorder mousePos $
-                         drawImage viewPort image
-
+      getPicture image = drawWithBorder viewPort image wMousePos
+  picture <- queryImage getPicture world
   return $ applyViewPortToPicture viewPort picture
 
 initWorld :: Image i => i -> IO World
@@ -240,7 +230,7 @@ initWorld img = do
                      Map.fromList commandConfig <>
                      Map.fromList defaultCommandConfig
     , wImage = image
-    , wMousePos = Nothing
+    , wMousePos = (0,0)
     , wLastFeedback = Nothing
     , wEventHistory = initEventHistory
     }

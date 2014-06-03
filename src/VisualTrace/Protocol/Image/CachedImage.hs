@@ -19,6 +19,7 @@ import qualified Graphics.Gloss as G
 
 import VisualTrace.Protocol.Image
 import VisualTrace.Data.Picture
+import VisualTrace.Data.Feedback.FeedbackStorage
 
 type Cache b a = IORef [(StableName a, b)]
 
@@ -27,6 +28,7 @@ data CachedImage a = CachedImage
   , cachePicG :: !(Cache PictureG a)
   , cachePicL :: !(Cache PictureL a)
   , cacheGPic :: !(Cache G.Picture a)
+  , cacheFds  :: !(Cache FeedbackStorage a)
   }
   deriving Typeable
 
@@ -62,10 +64,12 @@ instance Image a => Image (CachedImage a) where
     cPicG <- newIORef []
     cPicL <- newIORef []
     cGPic <- newIORef []
+    cFds  <- newIORef []
     return $ CachedImage { imageCurrent = initImage
                           , cachePicG = cPicG
                           , cachePicL = cPicL
                           , cacheGPic = cGPic
+                          , cacheFds  = cFds
                           }
 
   evolveImage secElapsed = onCurrectImage (evolveImage secElapsed)
@@ -80,5 +84,8 @@ instance Image a => Image (CachedImage a) where
 
   draw viewPort image@CachedImage{..} =
     cache imageCurrent cacheGPic (stdDraw viewPort image)
+
+  getFeedbackStorage viewPort image@CachedImage{..} =
+    cache imageCurrent cacheFds (stdGetFeedbackStorage viewPort image)
 
   showImage image = "CachedImage:\n" ++ showImage (imageCurrent image)
