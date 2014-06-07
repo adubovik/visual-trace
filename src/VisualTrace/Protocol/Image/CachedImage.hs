@@ -2,7 +2,6 @@
    DeriveDataTypeable
  , RecordWildCards
  , TypeFamilies
- , CPP
  #-}
 
 module VisualTrace.Protocol.Image.CachedImage

@@ -51,6 +51,8 @@ library
     VisualTrace.Data.Picture.Trans,
     VisualTrace.Data.ViewState.Utils,
     VisualTrace.Data.ViewState.Focus,
+    VisualTrace.Data.SegmentTree,
+    VisualTrace.Data.Interval,
     VisualTrace.Protocol.Image.CachedImage,
     VisualTrace.Client.ProgressBar,
     VisualTrace.Client.Graph,
