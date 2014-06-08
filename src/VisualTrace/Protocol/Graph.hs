@@ -45,27 +45,30 @@ data Image = Image
 
 instance I.Image Image where
   type Command Image = Command
-  initImage = initImage
+  data AuxImage Image = NilAuxImage
+  initBase = initBase
+  initAux  = NilAuxImage
+
   showImage = show
-  drawImageG = drawImageG
-  evolveImage = evolveImage
-  interpret = interpret
+  drawBaseRaw = drawBaseRaw
+  evolveBase = evolveBase
+  interpretBase = interpretBase
 
 onGraph :: (Graph -> Graph) -> (Image -> Image)
 onGraph f im = im { graph2d = f (graph2d im) }
 
-initImage :: Image
-initImage = Image { graph2d = empty
-                  , nodeHighlighted = Nothing
-                  , nodeAnnotation = Nothing
-                  }
+initBase :: Image
+initBase = Image { graph2d = empty
+                 , nodeHighlighted = Nothing
+                 , nodeAnnotation = Nothing
+                 }
 
-interpret :: Command -> Image -> Image
-interpret (InsertEdge fr to)    = onGraph $ insertEdge ((fr,to),Nothing)
-interpret (InsertNode node pos) = onGraph $ insertNode (node, Just ((), pos))
+interpretBase :: Command -> Image -> Image
+interpretBase (InsertEdge fr to)    = onGraph $ insertEdge ((fr,to),Nothing)
+interpretBase (InsertNode node pos) = onGraph $ insertNode (node, Just ((), pos))
 
-drawImageG :: Image -> PictureG
-drawImageG Image{..} =
+drawBaseRaw :: Image -> PictureG
+drawBaseRaw Image{..} =
   pictures $
     edgePics ++
     nodePics ++
@@ -140,5 +143,5 @@ drawImageG Image{..} =
               -- TODO: replace with "+ (newPos - oldPos)"
               onGraph (adjustNodePos (const newPos) node)
 
-evolveImage :: Float -> Image -> Image
-evolveImage _secElapsed = onGraph $ fst . applyForces stdForces
+evolveBase :: Float -> Image -> Image
+evolveBase _secElapsed = onGraph $ fst . applyForces stdForces

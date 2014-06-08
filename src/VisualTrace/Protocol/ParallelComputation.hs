@@ -26,6 +26,7 @@ import VisualTrace.Data.Picture
 import VisualTrace.Data.ColorRead(Color,fromColor,toColor)
 import VisualTrace.Data.Feedback
 import qualified VisualTrace.Protocol.Image as I
+import VisualTrace.Protocol.Image(ImageGroup,AuxImage,onAuxImage)
 
 -- Identifier of computation node
 -- that processing a workunit.
@@ -76,24 +77,36 @@ data Command = WorkunitStatus
   deriving (Show, Read, Eq, Ord)
 
 data Image = Image
-  { nodeMap :: Map.Map NodeId Workunits
-  , annotatedWorkunit :: Maybe AnnotatedWorkunit
-  }
+  { nodeMap :: Map.Map NodeId Workunits }
   deriving (Show, Read, Eq, Ord, Typeable)
 
 instance I.Image Image where
   type Command Image = Command
-  initImage = const initImage (mkBigImage 1000 6)
-  drawImageG = drawImageG
-  evolveImage = evolveImage
-  interpret = interpret
+  newtype AuxImage Image = AuxImage
+    { annotatedWorkunit :: Maybe AnnotatedWorkunit }
+
+  initBase = (flip const) initBase (mkBigImage 1000 6)
+  initAux  = initAux
+
+  drawBaseRaw = drawBaseRaw
+  drawAuxRaw = drawAuxRaw
+
+  evolveBase = evolveBase
+  evolveAux = evolveAux
+
+  interpretBase = interpretBase
+  interpretAux  = const id
+
+initAux :: AuxImage Image
+initAux = AuxImage { annotatedWorkunit = Nothing }
+
+initBase :: Image
+initBase = Image { nodeMap = Map.empty }
 
 -- For performance testing
 mkBigImage :: Int -> Int -> Image
 mkBigImage wusPerNode nNodes =
-  Image { nodeMap = mkNodeMap
-        , annotatedWorkunit = Nothing
-        }
+  Image { nodeMap = mkNodeMap }
   where
     mkNodeMap = Map.fromList [ (show nId, mkWorkUnits wusPerNode nId)
                              | nId <- [(0::Int)..nNodes-1]
@@ -111,13 +124,8 @@ onNodeMap :: (Map.Map NodeId Workunits -> Map.Map NodeId Workunits) ->
              (Image -> Image)
 onNodeMap f im = im { nodeMap = f (nodeMap im) }
 
-initImage :: Image
-initImage = Image { nodeMap = Map.empty
-                  , annotatedWorkunit = Nothing
-                  }
-
-interpret :: Command -> Image -> Image
-interpret WorkunitStatus{..} = onNodeMap modifyNodeMap
+interpretBase :: Command -> Image -> Image
+interpretBase WorkunitStatus{..} = onNodeMap modifyNodeMap
   where
     workunit = Workunit { wuStatus = wuSt
                         , wuHistory = [(wuSt, wuMsg)]
@@ -126,32 +134,11 @@ interpret WorkunitStatus{..} = onNodeMap modifyNodeMap
     modifyNodeMap = Map.insertWith (Map.unionWith (<>)) wuNodeId
                       (Map.singleton wuId workunit)
 
-drawImageG :: Image -> PictureG
-drawImageG Image{..} =
-  pictures
-    [ rvcat nodesPadding $ map (uncurry drawNode) $ Map.toList nodeMap
-    , maybe blank drawAnnotatedWorkunit annotatedWorkunit
-    ]
+drawAuxRaw :: AuxImage Image -> PictureG
+drawAuxRaw AuxImage{..} =
+  maybe blank drawAnnotatedWorkunit annotatedWorkunit
   where
-    nodesPadding           = local 10
-    nodeRectPadding        = local 10
-    nodeHeader_BodyPadding = local 10
-    nodeIdRectPadding      = local 5
-    tableWHRatio           = 2.0
-    nodeIdTextHeight       = 50
-    wuStatusTextHeight     = 50
-    wuStatusRectPadding    = local 3
-    tableVPadding          = local 10
-    tableHPadding          = local 10
     annotationFontHeight   = 20
-
-    preprocessStatus :: String -> String
-    preprocessStatus s =
-      let n = 3
-          s' = take n s
-          n' = length s'
-          suffix = replicate (n-n') ' '
-      in s' ++ suffix
 
     drawAnnotatedWorkunit :: AnnotatedWorkunit -> PictureG
     drawAnnotatedWorkunit AnnotatedWorkunit{..} =
@@ -168,6 +155,31 @@ drawImageG Image{..} =
           in translate (screen 5) (screen 5) .
              translate (local  x) (local  y)
         Workunit{..} = awuWu
+
+drawBaseRaw :: Image -> PictureG
+drawBaseRaw Image{..} =
+  rvcat nodesPadding $
+  map (uncurry drawNode) $
+  Map.toList nodeMap
+  where
+    nodesPadding           = local 10
+    nodeRectPadding        = local 10
+    nodeHeader_BodyPadding = local 10
+    nodeIdRectPadding      = local 5
+    tableWHRatio           = 2.0
+    nodeIdTextHeight       = 50
+    wuStatusTextHeight     = 50
+    wuStatusRectPadding    = local 3
+    tableVPadding          = local 10
+    tableHPadding          = local 10
+
+    preprocessStatus :: String -> String
+    preprocessStatus s =
+      let n = 3
+          s' = take n s
+          n' = length s'
+          suffix = replicate (n-n') ' '
+      in s' ++ suffix
 
     drawNode :: NodeId -> Workunits -> PictureG
     drawNode nodeId workunits =
@@ -217,7 +229,8 @@ drawImageG Image{..} =
       where
         (clr, status) = wuStatus
 
-    wuFeedback :: NodeId -> WorkunitId -> Workunit -> Feedback Image
+    wuFeedback :: NodeId -> WorkunitId -> Workunit ->
+                  Feedback (ImageGroup Image)
     wuFeedback nodeId wuId wu =
       mkFeedback stdFocusCapture feedbackId $
         mkCompFeedback (traceSideEffect feedbackId) transform
@@ -226,7 +239,7 @@ drawImageG Image{..} =
 
         transform = stdAnnotationTransform mkAnnotation rmAnnotation
 
-        mkAnnotation _oldPos newPos image =
+        mkAnnotation _oldPos newPos = onAuxImage $ \image ->
           image { annotatedWorkunit = Just $ AnnotatedWorkunit
                     { awuMousePos = newPos
                     , awuWuId = wuId
@@ -234,7 +247,11 @@ drawImageG Image{..} =
                     }
                 }
 
-        rmAnnotation image = image { annotatedWorkunit = Nothing }
+        rmAnnotation = onAuxImage $ \image ->
+          image { annotatedWorkunit = Nothing }
 
-evolveImage :: Float -> Image -> Image
-evolveImage _secElapsed = id
+evolveBase :: Float -> Image -> Image
+evolveBase _secElapsed = id
+
+evolveAux :: Float -> AuxImage Image -> AuxImage Image
+evolveAux  _secElapsed = id

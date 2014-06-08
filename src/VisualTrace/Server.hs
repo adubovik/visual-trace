@@ -16,6 +16,8 @@ module VisualTrace.Server
  , HTTPConfig(..)
  ) where
 
+import Prelude hiding (init)
+
 import Options.Applicative
 import Network.HTTP.Server
 import Network.Socket
@@ -47,7 +49,11 @@ import VisualTrace.Protocol.Image
 import VisualTrace.Protocol.Image.CachedImage
 
 type EventHandler = Event -> World -> IO World
-data ServerImage = forall i. Image i => ServerImage i
+data ServerImage = forall i. Image i => ServerImage (ImageGroup i)
+
+type ImageTransformM m = forall i. Image i => ImageGroup i -> m (ImageGroup i)
+type ImageTransform    = forall i. Image i => ImageGroup i -> ImageGroup i
+type ImageQuery q      = forall i. Image i => ImageGroup i -> q
 
 data World = World
  { wViewState :: !ViewState
@@ -57,16 +63,16 @@ data World = World
  , wEventHistory :: !EventHistory
  }
 
-onServerImage :: Functor m => (forall i. Image i => i -> m i) ->
+onServerImage :: Functor m => ImageTransformM m ->
                  ServerImage -> m ServerImage
 onServerImage f (ServerImage i) = ServerImage <$> f i
 
-queryImage :: (forall i. Image i => i -> q) -> World -> IO q
+queryImage :: ImageQuery q -> World -> IO q
 queryImage f w = do
   ServerImage i <- readMVar (wImage w)
   return $ f i
 
-onImage :: (forall i. Image i => i -> IO i) -> World -> IO ()
+onImage :: ImageTransformM IO -> World -> IO ()
 onImage f w = modifyMVar_ (wImage w) $ onServerImage f
 
 -- TODO: lens
@@ -90,7 +96,7 @@ handler world _addr _url req = do
   putStrLn $ "Received: " ++ rqBody req
 
   let cmd :: String = rqBody req
-      runCommand img = case interpretCommand cmd img of
+      runCommand img = case interpret cmd img of
         Left  msg  -> do
           putStrLn $ "Parse error: " ++ msg
           return img
@@ -136,7 +142,7 @@ updateEventHistoryIO event eh = do
   windowSize <- getWindowSize
   return $ updateEventHistory windowSize event eh
 
-handleEventStep :: (forall i. Image i => i -> i) -> Event -> World -> IO World
+handleEventStep :: ImageTransform -> Event -> World -> IO World
 handleEventStep imageEvolution event world@World{..} = do
   let mousePos = getCurrMousePos wEventHistory
       viewPort = viewStateViewPort wViewState
@@ -157,10 +163,9 @@ handleEventStep imageEvolution event world@World{..} = do
       runFeedbackWithEvent Nothing _ =
         return FocusReleased
 
-      runFeedbackOnImage :: Image i => ExWrap Feedback -> EventInfo ->
-                            i -> IO i
+      runFeedbackOnImage :: ExWrap Feedback -> EventInfo -> ImageTransformM IO
       runFeedbackOnImage (ExWrap feedback) eventInfo =
-        onBaseImage (runFeedback eventInfo feedback)
+        onImageGroup (runFeedback eventInfo feedback)
 
   let focusSwith = oldFeedback /= newFeedback
       focusOld | focusSwith = FocusLost
@@ -194,7 +199,7 @@ eventHandler e@(EventMotion _) w = do
 eventHandler (EventKey (Char 'r') Down _mod _pos) w@World{..} = do
   ServerImage image <- readMVar wImage
       -- TODO: cache `getPictureExt` calls in `CachedImage` as well
-  let imageExt = getPictureExt $ drawImage viewPort image
+  let imageExt = getPictureExt $ drawSimpl viewPort image
       focusExt = enlargeExt 1.1 1.1 imageExt
       viewPort = viewStateViewPort wViewState
 
@@ -213,7 +218,7 @@ timeEvolution secElapsed w = do
           event = EventMotion mousePos
 
   (event, w') <- emitFakeEvent w
-  handleEventStep (evolveImage secElapsed) event w'
+  handleEventStep (evolve secElapsed) event w'
 
 drawWorld :: World -> IO Picture
 drawWorld world@World{..} = do
@@ -222,7 +227,7 @@ drawWorld world@World{..} = do
   picture <- queryImage getPicture world
   return $ applyViewPortToPicture viewPort picture
 
-initWorld :: Image i => i -> IO World
+initWorld :: ImageQuery (IO World)
 initWorld img = do
   image <- newMVar (ServerImage img)
   return $ World
@@ -246,7 +251,7 @@ initWorld img = do
 runServerWithConfig :: forall i. Image i => HTTPConfig -> Proxy i -> IO ()
 runServerWithConfig config Proxy = do
   putStrLn $ printf "Server is running at %s..." (show config)
-  world <- initWorld (initImage :: CachedImage i)
+  world <- initWorld (init :: ImageGroup (CachedImage i))
 
   void $ forkIO (render world)
   serverWith (toHTTPServerConfig config) (handler world)

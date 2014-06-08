@@ -1,19 +1,33 @@
 {-# language
    FlexibleContexts
  , TypeFamilies
+ , DeriveDataTypeable
+ , RecordWildCards
  #-}
 
 module VisualTrace.Protocol.Image
  ( Image(..)
- , interpretCommand
- , getFeedbackDataUnderPoint
+ , ImageGroup(..)
+
+ , init
+ , evolve
+ , draw
+ , drawSimpl
  , drawWithBorder
+ , interpret
+ , getFeedbackDataUnderPoint
 
  , stdGetFeedbackStorage
- , stdDrawImage
- , stdDraw
+ , stdDrawBaseSimpl
+ , stdDrawAuxSimpl
+ , stdDrawBase
+ , stdDrawAux
+
+ , onBaseImage
+ , onAuxImage
  ) where
 
+import Prelude hiding (init)
 import Control.Applicative
 import Data.Typeable(Typeable, Typeable1, cast)
 
@@ -27,19 +41,48 @@ import VisualTrace.Data.Picture.Trans
 import VisualTrace.Data.Picture.Selection
 import VisualTrace.Data.Feedback.FeedbackStorage
 
+data ImageGroup a = ImageGroup
+  { baseImage :: a
+  , auxImage  :: AuxImage a
+  }
+  deriving Typeable
+
+onBaseImage :: (a -> a) -> ImageGroup a -> ImageGroup a
+onBaseImage f group = group { baseImage = f (baseImage group) }
+
+onAuxImage :: (AuxImage a -> AuxImage a) -> ImageGroup a -> ImageGroup a
+onAuxImage f group = group { auxImage = f (auxImage group) }
+
 class (Typeable a, Read (Command a)) => Image a where
   type Command a :: *
+  data AuxImage a :: *
 
-  initImage :: a
-  drawImageG :: a -> PictureG
-  evolveImage :: Float -> a -> a
-  interpret :: Command a -> a -> a
+  initBase :: a
+  initAux  :: AuxImage a
 
-  drawImage :: ViewPort -> a -> PictureL
-  drawImage = stdDrawImage
+  evolveBase :: Float -> a -> a
+  evolveAux  :: Float -> AuxImage a -> AuxImage a
+  evolveAux  = const id
 
-  draw :: ViewPort -> a -> G.Picture
-  draw = stdDraw
+  interpretBase :: Command a -> a -> a
+  interpretAux :: Command a -> AuxImage a -> AuxImage a
+  interpretAux = const id
+
+  drawBaseRaw :: a -> PictureG
+  drawAuxRaw :: AuxImage a -> PictureG
+  drawAuxRaw = const blank
+
+  drawBaseSimpl :: ViewPort -> a -> PictureL
+  drawBaseSimpl = stdDrawBaseSimpl
+
+  drawAuxSimpl :: ViewPort -> AuxImage a -> PictureL
+  drawAuxSimpl = stdDrawAuxSimpl
+
+  drawBase :: ViewPort -> a -> G.Picture
+  drawBase = stdDrawBase
+
+  drawAux :: ViewPort -> AuxImage a -> G.Picture
+  drawAux = stdDrawAux
 
   getFeedbackStorage :: ViewPort -> a -> FeedbackStorage
   getFeedbackStorage = stdGetFeedbackStorage
@@ -47,13 +90,38 @@ class (Typeable a, Read (Command a)) => Image a where
   showImage :: a -> String
   showImage _ = "showImage"
 
-  onBaseImage :: (Monad m, Typeable b, Typeable1 m) =>
-                 (b -> m b) -> (a -> m a)
-  onBaseImage f a = case cast f of
+  onImageGroup :: (Monad m, Typeable b, Typeable1 m) =>
+                  (b -> m b) -> (ImageGroup a -> m (ImageGroup a))
+  onImageGroup f a = case cast f of
     Just f' -> f' a
     Nothing -> return a
 
-drawWithBorder :: Image a => ViewPort -> a -> Point -> G.Picture
+init :: Image a => ImageGroup a
+init = ImageGroup { baseImage = initBase
+                  , auxImage  = initAux
+                  }
+
+evolve :: Image a => Float -> ImageGroup a -> ImageGroup a
+evolve secElapsed ImageGroup{..} =
+  ImageGroup { baseImage = evolveBase secElapsed baseImage
+             , auxImage  = evolveAux  secElapsed auxImage
+             }
+
+draw :: Image a => ViewPort -> ImageGroup a -> G.Picture
+draw viewPort ImageGroup{..} =
+  let base = drawBase viewPort baseImage
+      aux  = drawAux  viewPort auxImage
+      -- Aux is always above base image
+  in  G.pictures [ base, aux ]
+
+drawSimpl :: Image a => ViewPort -> ImageGroup a -> PictureL
+drawSimpl viewPort ImageGroup{..} =
+  let base = drawBaseSimpl viewPort baseImage
+      aux  = drawAuxSimpl  viewPort auxImage
+      -- Aux is always above base image
+  in  pictures [ base, aux ]
+
+drawWithBorder :: Image a => ViewPort -> ImageGroup a -> Point -> G.Picture
 drawWithBorder viewPort image point = picture
   where
     fdData = getFeedbackDataUnderPoint viewPort image point
@@ -67,22 +135,31 @@ drawWithBorder viewPort image point = picture
                              . drawExt NoFill $ ext
                              ]
 
-getFeedbackDataUnderPoint :: Image a => ViewPort -> a -> Point -> Maybe FeedbackData
+getFeedbackDataUnderPoint :: Image a => ViewPort -> ImageGroup a -> Point -> Maybe FeedbackData
 getFeedbackDataUnderPoint viewPort image point =
-  feedbackDataUnderPoint (getFeedbackStorage viewPort image) point
+  feedbackDataUnderPoint (getFeedbackStorage viewPort (baseImage image)) point
 
 stdGetFeedbackStorage :: Image a => ViewPort -> a -> FeedbackStorage
 stdGetFeedbackStorage viewPort =
-  mkFeedbackStorage . buildFeedbackList . drawImage viewPort
+  mkFeedbackStorage . buildFeedbackList . drawBaseSimpl viewPort
 
-stdDrawImage :: Image a => ViewPort -> a -> PictureL
-stdDrawImage viewPort = desugarePicture viewPort . drawImageG
+stdDrawBaseSimpl :: Image a => ViewPort -> a -> PictureL
+stdDrawBaseSimpl viewPort = desugarePicture viewPort . drawBaseRaw
 
-stdDraw :: Image a => ViewPort -> a -> G.Picture
-stdDraw viewPort = toPicture . flattenPicture . drawImage viewPort
+stdDrawAuxSimpl :: Image a => ViewPort -> AuxImage a -> PictureL
+stdDrawAuxSimpl viewPort = desugarePicture viewPort . drawAuxRaw
 
-interpretCommand :: Image a => String -> a -> Either String a
-interpretCommand command img =
+stdDrawBase :: Image a => ViewPort -> a -> G.Picture
+stdDrawBase viewPort = toPicture . flattenPicture . drawBaseSimpl viewPort
+
+stdDrawAux :: Image a => ViewPort -> AuxImage a -> G.Picture
+stdDrawAux viewPort = toPicture . flattenPicture . drawAuxSimpl viewPort
+
+interpret :: Image a => String -> ImageGroup a -> Either String (ImageGroup a)
+interpret command ImageGroup{..} =
   case reads command of
     [] -> Left $ "Can't read command: " ++ command ++ "."
-    (command',_):_ -> Right $ interpret command' img
+    (command',_):_ -> Right $
+      ImageGroup { baseImage = interpretBase command' baseImage
+                 , auxImage  = interpretAux  command' auxImage
+                 }

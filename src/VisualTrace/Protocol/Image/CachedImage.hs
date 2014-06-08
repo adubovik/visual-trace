@@ -56,35 +56,59 @@ onCurrectImageM f image@CachedImage{..} = do
   imageCurrent' <- f imageCurrent
   return $ image { imageCurrent = imageCurrent' }
 
+onAuxCached :: Image a =>
+               (AuxImage a -> AuxImage a) ->
+               (AuxImage (CachedImage a) -> AuxImage (CachedImage a))
+onAuxCached f (AuxImage x) = AuxImage $ f x
+
+-- We only cache base image.
+-- Aux image should be very small.
 instance Image a => Image (CachedImage a) where
   type Command (CachedImage a) = Command a
+  data AuxImage (CachedImage a) = AuxImage { unAuxImage :: AuxImage a }
 
-  initImage = unsafePerformIO $ do
+  initBase = unsafePerformIO $ do
     cPicG <- newIORef []
     cPicL <- newIORef []
     cGPic <- newIORef []
     cFds  <- newIORef []
-    return $ CachedImage { imageCurrent = initImage
-                          , cachePicG = cPicG
-                          , cachePicL = cPicL
-                          , cacheGPic = cGPic
-                          , cacheFds  = cFds
-                          }
+    return $ CachedImage { imageCurrent = initBase
+                         , cachePicG = cPicG
+                         , cachePicL = cPicL
+                         , cacheGPic = cGPic
+                         , cacheFds  = cFds
+                         }
+  initAux = AuxImage initAux
 
-  evolveImage secElapsed = onCurrectImage (evolveImage secElapsed)
-  interpret command      = onCurrectImage (interpret command)
-  onBaseImage f          = onCurrectImageM (onBaseImage f)
+  evolveBase = onCurrectImage . evolveBase
+  evolveAux  = onAuxCached    . evolveAux
 
-  drawImageG CachedImage{..} =
-    cache imageCurrent cachePicG (drawImageG imageCurrent)
+  interpretAux  = onAuxCached    . interpretAux
+  interpretBase = onCurrectImage . interpretBase
 
-  drawImage viewPort image@CachedImage{..} =
-    cache imageCurrent cachePicL (stdDrawImage viewPort image)
+  drawBaseRaw CachedImage{..} =
+    cache imageCurrent cachePicG (drawBaseRaw imageCurrent)
+  drawAuxRaw = drawAuxRaw . unAuxImage
 
-  draw viewPort image@CachedImage{..} =
-    cache imageCurrent cacheGPic (stdDraw viewPort image)
+  drawBaseSimpl viewPort image@CachedImage{..} =
+    cache imageCurrent cachePicL (stdDrawBaseSimpl viewPort image)
+
+  drawBase viewPort image@CachedImage{..} =
+    cache imageCurrent cacheGPic (stdDrawBase viewPort image)
 
   getFeedbackStorage viewPort image@CachedImage{..} =
     cache imageCurrent cacheFds (stdGetFeedbackStorage viewPort image)
 
   showImage image = "CachedImage:\n" ++ showImage (imageCurrent image)
+
+  onImageGroup f imageGroup = do
+    let unwrapGroup ImageGroup{..} =
+          ImageGroup { baseImage = imageCurrent baseImage
+                     , auxImage  = unAuxImage auxImage
+                     }
+        wrapGroup group =
+          ImageGroup { baseImage = (baseImage imageGroup)
+                                   { imageCurrent = baseImage group }
+                     , auxImage  = AuxImage $ auxImage group
+                     }
+    liftM wrapGroup . onImageGroup f . unwrapGroup $ imageGroup
