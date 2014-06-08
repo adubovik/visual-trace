@@ -1,3 +1,7 @@
+{-# language
+   RecordWildCards
+ #-}
+
 module VisualTrace.Data.Interval where
 
 import Text.Printf
@@ -42,7 +46,7 @@ intersects one two = low one `inside` two || high one `inside` two ||
                      low two `inside` one || high two `inside` one
 
 inside :: Ord v => R v -> Interval v -> Bool
-inside p (Interval ltype low high htype) =
+inside p Interval{..} =
   (cmp ltype) low p && (cmp htype) p high
     where
       cmp Open   = (<)

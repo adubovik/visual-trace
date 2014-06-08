@@ -6,6 +6,7 @@
  , NamedFieldPuns
  , StandaloneDeriving
  , TupleSections
+ , EmptyDataDecls
  #-}
 
 module VisualTrace.Data.SegmentTree (
@@ -20,7 +21,6 @@ module VisualTrace.Data.SegmentTree (
 
 import Data.List (sort, unfoldr, foldl')
 import Data.Monoid
-import Text.Printf
 import Data.Set(Set)
 import qualified Data.Set as Set
 
@@ -57,10 +57,11 @@ mkSkeleton intervals = skeleton
                             }
 
     connect []         = Nothing
+    connect [x]        = Just $ (x,[])
     connect [x,y,z]    = Just $ ((x `simpleBranch` y) `simpleBranch` z, [])
     connect (x:y:rest) = Just $ (x `simpleBranch` y, rest)
 
-    converged [x] = True
+    converged [_] = True
     converged _   = False
 
     atomicIntervals = concatMap toAtomicInterval $
@@ -77,7 +78,7 @@ mkSkeleton intervals = skeleton
     baseIntervals = map (\(Intv i _) -> i) intervals
 
 subInsert :: (Ord a, Ord (Intv b)) => Intv (a,b) -> STree (a,b) -> STree (a,b)
-subInsert itv@(Intv i is) t@Tree{interval=baseInterval, branch, stdList} =
+subInsert itv@(Intv i _is) t@Tree{interval=baseInterval, branch, stdList} =
   case branch of
     Tip
       | baseInterval `subinterval` i
@@ -128,7 +129,7 @@ instance (Monoid (MonoidTag b), Ord a, Ord (Intv b), SegmentTree b) =>
   fromList intervals =
     finalize $ foldl' (flip subInsert) (mkSkeleton intervals) intervals
 
-  query t@Tree{interval=baseInterval,subTree,branch} ps@(point,ps') =
+  query Tree{interval=baseInterval,subTree,branch} ps@(point,ps') =
     let continue = (R point) `inside` baseInterval
         tag | continue = query subTree ps'
             | otherwise = mempty
@@ -196,14 +197,18 @@ _tree2 = mkSegmentTree2D
          , (((3, 7),(3, 7)),[2])
          ]
 
+_query1 :: [(Int, [Int])]
 _query1 = [ (i,) $ querySegmentTree1D _tree1 i
           | i <- [0..11]]
+
+_query2 :: [[[Int]]]
 _query2 = [ [ querySegmentTree2D _tree2 (i,j)
             | i <- [0..11]
             ]
           | j <- [0..11]
           ]
 
+_main :: IO ()
 _main = do
   mapM_ (putStrLn . show) _query1
   mapM_ (putStrLn . show) _query2
