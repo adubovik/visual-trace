@@ -83,9 +83,12 @@ interpretBase (Done pid ann done) i =
 
 drawBaseRaw :: Image -> PictureG
 drawBaseRaw Image{..} = pictures $ [ progressBarPics
-                                  , annotationPic
-                                  ]
+                                   , annotationPic
+                                   ]
   where
+    padding  = screen $ cellSize/15.0
+    cellSize = 30.0
+
     progressBarPics =
       rvcat padding $
       map (uncurry drawProgressBar) $
@@ -97,7 +100,7 @@ drawBaseRaw Image{..} = pictures $ [ progressBarPics
     drawProgressBar _pid ProgressBar{..}
       | annots == []
       , count == Nothing
-      = color G.red drawContour
+      = color (G.light G.red) drawContour
 
     drawProgressBar pid ProgressBar{..} = hcat padding clrRects
       where
@@ -106,8 +109,8 @@ drawBaseRaw Image{..} = pictures $ [ progressBarPics
                    zipWith color colors rects
 
         colors = map (\idx -> if idx < position
-                              then G.green
-                              else G.red
+                              then (G.light G.green)
+                              else (G.light G.red)
                      ) [0..]
 
         rects = zipWith (drawCell pid)
@@ -124,9 +127,6 @@ drawBaseRaw Image{..} = pictures $ [ progressBarPics
       toPictureG $
       scale cellSize cellSize $
       line [(0,0),(1,0),(1,1),(0,1),(0,0)]
-
-    padding  = local $ cellSize/15.0
-    cellSize = 30.0
 
     cellFeedback :: String -> Integer -> String ->
                     Feedback (ImageGroup Image)

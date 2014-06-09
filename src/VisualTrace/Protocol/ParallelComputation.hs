@@ -117,7 +117,7 @@ mkBigImage wusPerNode nNodes =
       [ (wuName, Workunit wuStat [(wuStat,wuName)])
       | i <- [0..n-1]
       , let wuName = show nIdx ++ "_" ++ show i
-      , let wuStat = (fromColor G.red, Just wuName)
+      , let wuStat = (fromColor (G.light G.red), Just wuName)
       ]
 
 onNodeMap :: (Map.Map NodeId Workunits -> Map.Map NodeId Workunits) ->
@@ -198,7 +198,7 @@ drawBaseRaw Image{..} =
               w = (size + h - 1) `div` h
           in  (w,h)
 
-        nodeHeader = insideRect nodeIdRectPadding Fill (Just G.blue) $
+        nodeHeader = insideRect nodeIdRectPadding Fill (Just (G.light G.blue)) $
                      drawText nodeIdTextHeight nodeId
 
     drawText :: Float -> String -> PictureG

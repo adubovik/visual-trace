@@ -102,8 +102,9 @@ drawBaseRaw Image{..} =
       where
         nodeColor node | Just node' <- nodeHighlighted
                        , node == node'
-                       = G.red
-                       | otherwise = G.green
+                       = G.light G.red
+                       | otherwise
+                       = G.light G.green
 
         drawNode (node, pos) = color (nodeColor node) $
                                uncurry translate (toLocalPoint pos) $
