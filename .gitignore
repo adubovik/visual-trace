@@ -6,8 +6,4 @@ cabal-dev
 *.chs.h
 .virthualenv
 *.sh
-
 *~
-
-cabal-dev
-dist

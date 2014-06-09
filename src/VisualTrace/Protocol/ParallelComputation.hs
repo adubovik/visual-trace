@@ -85,7 +85,7 @@ instance I.Image Image where
   newtype AuxImage Image = AuxImage
     { annotatedWorkunit :: Maybe AnnotatedWorkunit }
 
-  initBase = (flip const) initBase (mkBigImage 1000 6)
+  initBase = const initBase (mkBigImage 1000 6)
   initAux  = initAux
 
   drawBaseRaw = drawBaseRaw

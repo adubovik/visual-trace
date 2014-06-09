@@ -24,12 +24,13 @@ import VisualTrace.Data.Feedback
 import VisualTrace.Data.EventInfo.Utils
 import VisualTrace.Data.EventInfo.StdLib
 import qualified VisualTrace.Protocol.Image as I
+import VisualTrace.Protocol.Image(ImageGroup,onBaseImage)
+
+type ProgressBarId = String
 
 data Command = Init ProgressBarId (Maybe Int)
              | Done ProgressBarId (Maybe String) Int
   deriving (Show, Read, Eq, Ord)
-
-type ProgressBarId = String
 
 data Image = Image
   { progressBars   :: Map.Map ProgressBarId ProgressBar
@@ -127,6 +128,8 @@ drawBaseRaw Image{..} = pictures $ [ progressBarPics
     padding  = local $ cellSize/15.0
     cellSize = 30.0
 
+    cellFeedback :: String -> Integer -> String ->
+                    Feedback (ImageGroup Image)
     cellFeedback pid idx ann =
       mkFeedback stdFocusCapture feedbackId $
         mkCompFeedback (traceSideEffect feedbackId) transform
@@ -135,9 +138,10 @@ drawBaseRaw Image{..} = pictures $ [ progressBarPics
 
         transform = stdAnnotationTransform mkAnnotation rmAnnotation
 
-        mkAnnotation _old newPos image =
+        mkAnnotation _old newPos = onBaseImage $ \image ->
           image { cellAnnotation = Just (newPos, pid ++ ": " ++ ann) }
-        rmAnnotation image = image { cellAnnotation = Nothing }
+        rmAnnotation = onBaseImage $ \image ->
+          image { cellAnnotation = Nothing }
 
 evolveBase :: Float -> Image -> Image
 evolveBase = const id

@@ -28,6 +28,7 @@ import VisualTrace.Data.EventInfo.StdLib
 import VisualTrace.Data.Picture
 import VisualTrace.Data.Feedback
 import qualified VisualTrace.Protocol.Image as I
+import VisualTrace.Protocol.Image(ImageGroup,onBaseImage)
 
 data Command = InsertEdge Key Key
              | InsertNode Key Point
@@ -119,7 +120,7 @@ drawBaseRaw Image{..} =
                                        ]
                                ]
 
-        nodeFeedback :: (Node Key, Point) -> Feedback Image
+        nodeFeedback :: (Node Key, Point) -> Feedback (ImageGroup Image)
         nodeFeedback (node,_pos) =
           mkFeedback focusCapture feedbackId $
             mkCompFeedback (traceSideEffect feedbackId) transform
@@ -132,14 +133,15 @@ drawBaseRaw Image{..} =
               stdAnnotationTransform mkAnnotation rmAnnotation `andWhen`
               onMouseDrag LeftButton moveNode
 
-            mkAnnotation _old newPos image =
+            mkAnnotation _old newPos = onBaseImage $ \image ->
               image { nodeAnnotation = Just (newPos, node) }
-            rmAnnotation image = image { nodeAnnotation = Nothing }
+            rmAnnotation = onBaseImage $ \image ->
+              image { nodeAnnotation = Nothing }
 
-            hoverOn  image = image { nodeHighlighted = Just node }
-            hoverOff image = image { nodeHighlighted = Nothing   }
+            hoverOn  = onBaseImage $ \image -> image { nodeHighlighted = Just node }
+            hoverOff = onBaseImage $ \image -> image { nodeHighlighted = Nothing   }
 
-            moveNode _oldPos newPos =
+            moveNode _oldPos newPos = onBaseImage $
               -- TODO: replace with "+ (newPos - oldPos)"
               onGraph (adjustNodePos (const newPos) node)
 
