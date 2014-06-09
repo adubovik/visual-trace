@@ -56,8 +56,8 @@ library
     VisualTrace.Protocol.Image.CachedImage,
     VisualTrace.Client.ProgressBar,
     VisualTrace.Client.Graph,
-    VisualTrace.Client.Computations,
     VisualTrace.Client.Tree,
+    VisualTrace.Client.ParallelComputation,
     VisualTrace.HTTPConfig,
     Debug.Utils
   ghc-options: -Wall -Werror -O2
@@ -103,5 +103,5 @@ executable vt-parallelcomputation
     utf8-string, bytestring,
     optparse-applicative
   hs-source-dirs: src
-  main-is: VisualTrace/Client/Computations.hs
-  ghc-options: -Wall -Werror -O2 -main-is VisualTrace.Client.Computations
+  main-is: VisualTrace/Client/ParallelComputation.hs
+  ghc-options: -Wall -Werror -O2 -main-is VisualTrace.Client.ParallelComputation

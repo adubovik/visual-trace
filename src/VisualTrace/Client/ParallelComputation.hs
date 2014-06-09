@@ -3,7 +3,7 @@
  , RecordWildCards
  #-}
 
-module VisualTrace.Client.Computations(main) where
+module VisualTrace.Client.ParallelComputation(main) where
 
 import Options.Applicative
 import System.Random
