@@ -144,7 +144,7 @@ isMousePressed :: MouseButton -> EventHistory -> Bool
 isMousePressed = isKeyPressed . MouseButton
 
 wasMousePressed :: MouseButton -> EventHistory -> Bool
-wasMousePressed = isKeyPressed . MouseButton
+wasMousePressed = wasKeyPressed . MouseButton
 
 -- Mouse position
 

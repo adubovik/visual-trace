@@ -15,7 +15,9 @@ import Data.Monoid
 import Data.Maybe
 import Data.Typeable
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 
+import Graphics.Gloss.Interface.Pure.Game(MouseButton(..))
 import qualified Graphics.Gloss as G
 import Graphics.Gloss.Data.Point
 
@@ -26,7 +28,7 @@ import VisualTrace.Data.Picture
 import VisualTrace.Data.ColorRead(Color,fromColor,toColor)
 import VisualTrace.Data.Feedback
 import qualified VisualTrace.Protocol.Image as I
-import VisualTrace.Protocol.Image(ImageGroup,AuxImage,onAuxImage)
+import VisualTrace.Protocol.Image(ImageGroup,AuxImage,onAuxImage,onBaseImage)
 
 -- Identifier of computation node
 -- that processing a workunit.
@@ -77,7 +79,9 @@ data Command = WorkunitStatus
   deriving (Show, Read, Eq, Ord)
 
 data Image = Image
-  { nodeMap :: Map.Map NodeId Workunits }
+  { nodeMap :: Map.Map NodeId Workunits
+  , foldedNodes :: Set.Set NodeId
+  }
   deriving (Show, Read, Eq, Ord, Typeable)
 
 instance I.Image Image where
@@ -101,12 +105,12 @@ initAux :: AuxImage Image
 initAux = AuxImage { annotatedWorkunit = Nothing }
 
 initBase :: Image
-initBase = Image { nodeMap = Map.empty }
+initBase = Image { nodeMap = Map.empty, foldedNodes = Set.empty }
 
 -- For performance testing
 mkBigImage :: Int -> Int -> Image
 mkBigImage wusPerNode nNodes =
-  Image { nodeMap = mkNodeMap }
+  initBase { nodeMap = mkNodeMap }
   where
     mkNodeMap = Map.fromList [ (show nId, mkWorkUnits wusPerNode nId)
                              | nId <- [(0::Int)..nNodes-1]
@@ -117,7 +121,7 @@ mkBigImage wusPerNode nNodes =
       [ (wuName, Workunit wuStat [(wuStat,wuName)])
       | i <- [0..n-1]
       , let wuName = show nIdx ++ "_" ++ show i
-      , let wuStat = (fromColor (G.light G.red), Just wuName)
+      , let wuStat = (fromColor (G.light G.green), Just wuName)
       ]
 
 onNodeMap :: (Map.Map NodeId Workunits -> Map.Map NodeId Workunits) ->
@@ -157,10 +161,10 @@ drawAuxRaw AuxImage{..} =
         Workunit{..} = awuWu
 
 drawBaseRaw :: Image -> PictureG
-drawBaseRaw Image{..} =
+drawBaseRaw baseImage =
   rvcat nodesPadding $
   map (uncurry drawNode) $
-  Map.toList nodeMap
+  Map.toList (nodeMap baseImage)
   where
     nodesPadding           = local 10
     nodeRectPadding        = local 10
@@ -182,12 +186,18 @@ drawBaseRaw Image{..} =
       in s' ++ suffix
 
     drawNode :: NodeId -> Workunits -> PictureG
-    drawNode nodeId workunits =
+    drawNode nodeId  workunits =
       insideRect nodeRectPadding Fill (Just $ G.greyN 0.5) $
-        rvcat nodeHeader_BodyPadding $ [ nodeHeader
-                                       , drawTable width height workunits'
+        rvcat nodeHeader_BodyPadding $ [ header
+                                       , table
                                        ]
       where
+        isFolded = nodeId `Set.member` (foldedNodes baseImage)
+
+        table = if isFolded
+                then blank
+                else drawTable width height workunits'
+
         workunits' = map (uncurry $ drawWorkunit nodeId) $ Map.toList workunits
         (width, height) = findWH tableWHRatio (Map.size workunits)
 
@@ -198,8 +208,12 @@ drawBaseRaw Image{..} =
               w = (size + h - 1) `div` h
           in  (w,h)
 
-        nodeHeader = insideRect nodeIdRectPadding Fill (Just (G.light G.blue)) $
-                     drawText nodeIdTextHeight nodeId
+        headerColor | isFolded  = G.dark  G.blue
+                    | otherwise = G.light G.blue
+
+        header = insideRect nodeIdRectPadding Fill (Just headerColor) $
+                 selectionTrigger (nodeFeedback nodeId) $
+                 drawText nodeIdTextHeight nodeId
 
     drawText :: Float -> String -> PictureG
     drawText targetHeight s =
@@ -228,6 +242,20 @@ drawBaseRaw Image{..} =
       fromMaybe "" status
       where
         (clr, status) = wuStatus
+
+    nodeFeedback :: NodeId -> Feedback (ImageGroup Image)
+    nodeFeedback nodeId =
+      mkFeedback stdFocusCapture feedbackId $
+        mkCompFeedback (traceSideEffect feedbackId) transform
+      where
+        feedbackId = nodeId
+
+        transform = onMouseClick LeftButton foldUnfoldNode
+
+        foldUnfoldNode _currPos = onBaseImage $ \image ->
+          let switchElem el set | el `Set.member` set = el `Set.delete` set
+                                | otherwise           = el `Set.insert` set
+          in  image { foldedNodes = switchElem nodeId (foldedNodes image) }
 
     wuFeedback :: NodeId -> WorkunitId -> Workunit ->
                   Feedback (ImageGroup Image)

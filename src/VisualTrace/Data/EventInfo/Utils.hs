@@ -21,6 +21,11 @@ mouseButtonDrag mouseButton =
    isMousePressed mouseButton .&&.
   wasMousePressed mouseButton
 
+mouseButtonClick :: MouseButton -> EventHistory -> Bool
+mouseButtonClick mouseButton =
+          isMousePressed mouseButton .&&.
+  (not . wasMousePressed mouseButton)
+
 type FocusStrategy = EventInfo -> FocusCapture
 
 stdFocusCapture :: FocusStrategy
@@ -72,6 +77,17 @@ onMouseDrag mouseButton trans focusCapture EventInfo{..}
   | otherwise
   = id
 
+onMouseClick :: MouseButton ->
+                (Point -> a -> a) ->
+                Transformer a
+onMouseClick mouseButton trans focusCapture EventInfo{..}
+  | FocusCaptured <- focusCapture
+  , mouseButtonClick mouseButton efEventHistory
+  , newPos <- getCurrMousePos efEventHistory
+  = trans newPos
+  | otherwise
+  = id
+
 onMouseMove :: (Point -> Point -> a -> a) ->
                Transformer a
 onMouseMove trans focusCapture EventInfo{..}
@@ -81,3 +97,4 @@ onMouseMove trans focusCapture EventInfo{..}
   = trans oldPos newPos
   | otherwise
   = id
+

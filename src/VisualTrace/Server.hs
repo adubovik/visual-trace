@@ -127,14 +127,15 @@ render world = do
 
 eventHook :: EventHandler -> EventHandler
 eventHook eh event =
-      return -- traceHook event
+      return
+      -- _traceHook event
   >=> onEventHistory (         updateEventHistoryIO     event)
   >=> eh event
   >=> onViewState    (return . updateViewStateWithEvent event)
   where
     _traceHook :: Event -> World -> IO World
     _traceHook e world = do
-      putStrLn $ "Event = " ++ show e
+      putStrLn $ "TraceHook: Event = " ++ show e
       return world
 
 updateEventHistoryIO :: Event -> EventHistory -> IO EventHistory
@@ -193,32 +194,33 @@ handleEventStep imageEvolution event world@World{..} = do
                  }
 
 eventHandler :: EventHandler
-eventHandler e@(EventMotion _) w = do
-  handleEventStep id e w
+eventHandler e =
+      handleEventStep id e
+  >=> rescaleHandler e
 
-eventHandler (EventKey (Char 'r') Down _mod _pos) w@World{..} = do
+rescaleHandler :: EventHandler
+rescaleHandler (EventKey (Char 'r') Down _mod _pos) w@World{..} = do
   ServerImage image <- readMVar wImage
-      -- TODO: cache `getPictureExt` calls in `CachedImage` as well
+      -- TODO: cache `getPictureExt` calls in `CachedImage` as well (?)
   let imageExt = getPictureExt $ drawSimpl viewPort image
       focusExt = enlargeExt 1.1 1.1 imageExt
       viewPort = viewStateViewPort wViewState
 
   windowSize <- getWindowSize
   onViewState (return . focusViewState focusExt windowSize) w
-
-eventHandler _e w = return w
+rescaleHandler _e w = return w
 
 timeEvolution :: Float -> World -> IO World
-timeEvolution secElapsed w = do
-  let emitFakeEvent world = do
-        world' <- onEventHistory (updateEventHistoryIO event) world
-        return (event, world')
-        where
-          mousePos = getCurrMousePos $ wEventHistory world
-          event = EventMotion mousePos
+timeEvolution _secElapsed w = return w
+  -- let emitFakeEvent world = do
+  --       world' <- onEventHistory (updateEventHistoryIO event) world
+  --       return (event, world')
+  --       where
+  --         mousePos = getCurrMousePos $ wEventHistory world
+  --         event = EventMotion mousePos
 
-  (event, w') <- emitFakeEvent w
-  handleEventStep (evolve secElapsed) event w'
+  -- (event, w') <- emitFakeEvent w
+  -- handleEventStep (evolve secElapsed) event w'
 
 drawWorld :: World -> IO Picture
 drawWorld world@World{..} = do
