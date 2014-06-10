@@ -35,6 +35,7 @@ library
 
     VisualTrace.Protocol.ProgressBar,
     VisualTrace.Protocol.Graph,
+    VisualTrace.Protocol.Circles,
     VisualTrace.Protocol.ParallelComputation,
     VisualTrace.Protocol.Image
   other-modules:
@@ -57,6 +58,7 @@ library
     VisualTrace.Client.ProgressBar,
     VisualTrace.Client.Graph,
     VisualTrace.Client.Tree,
+    VisualTrace.Client.Circles,
     VisualTrace.Client.ParallelComputation,
     VisualTrace.HTTPConfig,
     VisualTrace.Grid,
@@ -106,3 +108,14 @@ executable vt-parallelcomputation
   hs-source-dirs: src
   main-is: VisualTrace/Client/ParallelComputation.hs
   ghc-options: -Wall -Werror -O2 -main-is VisualTrace.Client.ParallelComputation
+
+executable vt-circles
+  build-depends:
+    base, containers, mtl, random, tagged,
+    GLUT, gloss,
+    http-conduit, http-server==1.0.4, network, url,
+    utf8-string, bytestring,
+    optparse-applicative
+  hs-source-dirs: src
+  main-is: VisualTrace/Client/Circles.hs
+  ghc-options: -Wall -Werror -O2 -main-is VisualTrace.Client.Circles

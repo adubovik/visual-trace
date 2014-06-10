@@ -10,6 +10,7 @@ import Options.Applicative
 import Data.Proxy
 
 import VisualTrace.Server
+import qualified VisualTrace.Protocol.Circles              as Circles
 import qualified VisualTrace.Protocol.Graph               as Graph
 import qualified VisualTrace.Protocol.ProgressBar         as ProgressBar
 import qualified VisualTrace.Protocol.ParallelComputation as ParallelComputation
@@ -17,6 +18,7 @@ import qualified VisualTrace.Protocol.ParallelComputation as ParallelComputation
 data Image = ParallelComputation
            | ProgressBar
            | Graph
+           | Circles
   deriving (Read, Enum, Bounded, Show)
 
 data VTConfig = VTConfig
@@ -45,6 +47,9 @@ main = do
   VTConfig{..} <- execParser opts
 
   case vtImage of
+    Circles               ->
+      runServerWithConfig gridBackground vtHttpConfig
+        (Proxy :: Proxy Circles.Image)
     Graph               ->
       runServerWithConfig gridBackground vtHttpConfig
         (Proxy :: Proxy Graph.Image)
