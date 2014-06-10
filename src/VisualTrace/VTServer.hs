@@ -46,11 +46,11 @@ main = do
 
   case vtImage of
     Graph               ->
-      runServerWithConfig vtHttpConfig
+      runServerWithConfig gridBackground vtHttpConfig
         (Proxy :: Proxy Graph.Image)
     ProgressBar         ->
-      runServerWithConfig vtHttpConfig
+      runServerWithConfig noBackground vtHttpConfig
         (Proxy :: Proxy ProgressBar.Image)
     ParallelComputation ->
-      runServerWithConfig vtHttpConfig
+      runServerWithConfig noBackground vtHttpConfig
         (Proxy :: Proxy ParallelComputation.Image)

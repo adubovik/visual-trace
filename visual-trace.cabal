@@ -59,6 +59,7 @@ library
     VisualTrace.Client.Tree,
     VisualTrace.Client.ParallelComputation,
     VisualTrace.HTTPConfig,
+    VisualTrace.Grid,
     Debug.Utils
   ghc-options: -Wall -Werror -O2
 

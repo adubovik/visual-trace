@@ -14,6 +14,9 @@ module VisualTrace.Server
 
  , httpOptions
  , HTTPConfig(..)
+
+ , noBackground
+ , gridBackground
  ) where
 
 import Prelude hiding (init)
@@ -38,6 +41,7 @@ import Graphics.Gloss.Data.ViewState hiding (Command)
 import VisualTrace.HTTPConfig(HTTPConfig(..),Side(..),toHTTPServerConfig)
 import qualified VisualTrace.HTTPConfig as HTTPConfig
 
+import VisualTrace.Grid
 import VisualTrace.Data.EventInfo
 import VisualTrace.Data.Ext
 import VisualTrace.Data.ViewState.Focus
@@ -55,12 +59,16 @@ type ImageTransformM m = forall i. Image i => ImageGroup i -> m (ImageGroup i)
 type ImageTransform    = forall i. Image i => ImageGroup i -> ImageGroup i
 type ImageQuery q      = forall i. Image i => ImageGroup i -> q
 
+type WindowSize = (Int,Int)
+type BackgroudPicture = WindowSize -> (Point -> Point) -> Picture
+
 data World = World
  { wViewState :: !ViewState
  , wImage     :: !(MVar ServerImage)
  , wMousePos  :: !Point
  , wLastFeedback :: !(Maybe (ExWrap Feedback))
  , wEventHistory :: !EventHistory
+ , wBackground   :: BackgroudPicture
  }
 
 onServerImage :: Functor m => ImageTransformM m ->
@@ -86,7 +94,7 @@ onEventHistory f w = do
   eventHistory' <- f (wEventHistory w)
   return $ w { wEventHistory = eventHistory' }
 
-getWindowSize :: IO (Int,Int)
+getWindowSize :: IO WindowSize
 getWindowSize = do
   GLUT.Size width height <- GLUT.get GLUT.windowSize
   return (fromIntegral width, fromIntegral height)
@@ -211,26 +219,31 @@ rescaleHandler (EventKey (Char 'r') Down _mod _pos) w@World{..} = do
 rescaleHandler _e w = return w
 
 timeEvolution :: Float -> World -> IO World
-timeEvolution _secElapsed w = return w
-  -- let emitFakeEvent world = do
-  --       world' <- onEventHistory (updateEventHistoryIO event) world
-  --       return (event, world')
-  --       where
-  --         mousePos = getCurrMousePos $ wEventHistory world
-  --         event = EventMotion mousePos
+timeEvolution secElapsed w = do
+  let emitFakeEvent world = do
+        world' <- onEventHistory (updateEventHistoryIO event) world
+        return (event, world')
+        where
+          mousePos = getCurrMousePos $ wEventHistory world
+          event = EventMotion mousePos
 
-  -- (event, w') <- emitFakeEvent w
-  -- handleEventStep (evolve secElapsed) event w'
+  (event, w') <- emitFakeEvent w
+  handleEventStep (evolve secElapsed) event w'
 
 drawWorld :: World -> IO Picture
 drawWorld world@World{..} = do
   let viewPort = viewStateViewPort wViewState
       getPicture image = drawWithBorder viewPort image wMousePos
   picture <- queryImage getPicture world
-  return $ applyViewPortToPicture viewPort picture
 
-initWorld :: ImageQuery (IO World)
-initWorld img = do
+  windowSize <- getWindowSize
+  let backgroud = wBackground windowSize (invertViewPort viewPort)
+
+  return $ applyViewPortToPicture viewPort $
+    pictures [ backgroud, picture ]
+
+initWorld :: BackgroudPicture -> ImageQuery (IO World)
+initWorld backgroud img = do
   image <- newMVar (ServerImage img)
   return $ World
     { wViewState = viewStateInitWithConfig $ Map.toList $
@@ -240,6 +253,7 @@ initWorld img = do
     , wMousePos = (0,0)
     , wLastFeedback = Nothing
     , wEventHistory = initEventHistory
+    , wBackground = backgroud
     }
   where
     commandConfig = [oTranslate, oRotate, oRestore]
@@ -250,10 +264,12 @@ initWorld img = do
     oRotate  = (CRotate , [])
     oRestore = (CRestore, [])
 
-runServerWithConfig :: forall i. Image i => HTTPConfig -> Proxy i -> IO ()
-runServerWithConfig config Proxy = do
+runServerWithConfig :: forall i. Image i =>
+                       BackgroudPicture -> HTTPConfig ->
+                       Proxy i -> IO ()
+runServerWithConfig backgroud config Proxy = do
   putStrLn $ printf "Server is running at %s..." (show config)
-  world <- initWorld (init :: ImageGroup (CachedImage i))
+  world <- initWorld backgroud (init :: ImageGroup (CachedImage i))
 
   void $ forkIO (render world)
   serverWith (toHTTPServerConfig config) (handler world)
@@ -261,7 +277,11 @@ runServerWithConfig config Proxy = do
 httpOptions :: Parser HTTPConfig
 httpOptions = HTTPConfig.httpOptions Server
 
-runServer :: Image i => Proxy i -> IO ()
-runServer proxy = do
+noBackground, gridBackground :: BackgroudPicture
+noBackground = const $ const blank
+gridBackground = drawGrid
+
+runServer :: Image i => BackgroudPicture -> Proxy i -> IO ()
+runServer backgroud proxy = do
   conf <- execParser (HTTPConfig.httpOptInfo Server)
-  runServerWithConfig conf proxy
+  runServerWithConfig backgroud conf proxy
