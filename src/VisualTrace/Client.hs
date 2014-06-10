@@ -9,6 +9,7 @@ module VisualTrace.Client
  , delaySec
 
  , httpOptions
+ , httpOptInfo
  , HTTPConfig(..)
 
  , mainWrapper
@@ -29,6 +30,9 @@ import qualified VisualTrace.HTTPConfig as HTTPConfig
 
 httpOptions :: Parser HTTPConfig
 httpOptions = HTTPConfig.httpOptions Client
+
+httpOptInfo :: ParserInfo HTTPConfig
+httpOptInfo = HTTPConfig.httpOptInfo Client
 
 delaySec :: Float -> IO ()
 delaySec sec = threadDelay (round $ sec * 10**6)

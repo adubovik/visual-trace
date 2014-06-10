@@ -13,6 +13,7 @@ module VisualTrace.Server
  , runServerWithConfig
 
  , httpOptions
+ , httpOptInfo
  , HTTPConfig(..)
 
  , noBackground
@@ -276,6 +277,9 @@ runServerWithConfig backgroud config Proxy = do
 
 httpOptions :: Parser HTTPConfig
 httpOptions = HTTPConfig.httpOptions Server
+
+httpOptInfo :: ParserInfo HTTPConfig
+httpOptInfo = HTTPConfig.httpOptInfo Server
 
 noBackground, gridBackground :: BackgroudPicture
 noBackground = const $ const blank
