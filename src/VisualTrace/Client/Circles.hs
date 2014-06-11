@@ -6,6 +6,7 @@
 
 module VisualTrace.Client.Circles(main) where
 
+import Control.Monad
 import Options.Applicative
 
 import VisualTrace.Protocol.Circles
@@ -29,8 +30,37 @@ runCircles send = do
     InitCircle "Circle3" $
       Circle (-100,0.0) 150.0 (fromColor blue)
 
-  send 5.0 $
-    ChangeRaduis "Circle3" 50.0
+  let oscillation :: Float -> Float -> Int -> [Float]
+      oscillation from to n =
+        [ from + (fromIntegral i)*step
+        | i <- [0..n] ++ [n-1,n-2..1]
+        , let step = (to - from)/(fromIntegral n)
+        ]
+
+      circles :: String -> Float -> Float -> Int -> [Command]
+      circles ident from to n = cycle $
+        (flip map) (oscillation from to n) $ \rad ->
+          ChangeRaduis ident rad
+
+  let go (c1,c2,c3) = do
+        let (h1,t1) = splitAt 10 c1
+            (h2,t2) = splitAt 10 c2
+            (h3,t3) = splitAt 10 c3
+            heads = zipWith3 (,,) h1 h2 h3
+
+        forM_ heads $ \(cr1,cr2,cr3) -> do
+          send 0.05 cr1
+          send 0.05 cr2
+          send 0.05 cr3
+
+        go (t1,t2,t3)
+
+  let c1 = circles "Circle1"  50.0 100.0 40
+      c2 = circles "Circle2" 100.0 120.0 60
+      c3 = circles "Circle3" 150.0 200.0 20
+
+  go (c1,c2,c3)
+
 
 main :: IO ()
 main = mainWrapper $ do
