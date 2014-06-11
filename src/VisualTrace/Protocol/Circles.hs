@@ -94,8 +94,7 @@ drawBaseRaw Image{..} =
       toPictureG $
         selectionTrigger (circleFeedback ident c) $
           color clr' $
-            translate x y $
-              P.circle (0,0) radius
+            P.circle (x,y) radius
       where
         clr' | Just ident == circleHighlighted = white
              | otherwise = toColor clr

@@ -63,14 +63,18 @@ extAlg pic = fromMaybe mempty (getAtomExt pic) <> alg pic
       | otherwise = ext
 
 getAtomExt :: PictureFL a -> Maybe Ext
-getAtomExt Blank                   = Just $ mempty
-getAtomExt (Line _ path          ) = Just $ mconcat $ map pointExt path
-getAtomExt (Arc Nothing   _ _ rad) = Just $ scaleExt     rad      rad  unitExt
-getAtomExt (Arc (Just th) _ _ rad) = Just $ scaleExt (th+rad) (th+rad) unitExt
-getAtomExt (Text _ str           ) = let h = textHeight str
-                                         w = textWidth  str
-                                     in  Just $ scaleExt w h unitExtQ1
-getAtomExt _                       = Nothing
+getAtomExt Blank         = Just $ mempty
+getAtomExt (Line _ path) = Just $ mconcat $ map pointExt path
+getAtomExt (Arc thickness _ (x,y) rad) =
+  let th = fromMaybe 0.0 thickness
+  in Just $ translateExt x y $
+            scaleExt (th+rad) (th+rad) unitExt
+getAtomExt (Text (x,y) str) =
+  let h = textHeight str
+      w = textWidth  str
+  in  Just $ translateExt x y $
+             scaleExt w h unitExtQ1
+getAtomExt _ = Nothing
 
 isAtomPic :: PictureFL a -> Bool
 isAtomPic = isJust . getAtomExt
