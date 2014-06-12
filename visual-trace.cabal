@@ -13,7 +13,7 @@ source-repository head
 
 library
   build-depends:
-    base, containers, mtl, random, tagged,
+    base, time==1.4.*, containers, mtl, random, tagged,
     GLUT, gloss,
     http-conduit, http-server==1.0.4, network, url,
     utf8-string, bytestring,
@@ -67,7 +67,7 @@ library
 
 executable vt-server
   build-depends:
-    base, containers, mtl, random, tagged,
+    base, time==1.4.*, containers, mtl, random, tagged,
     GLUT, gloss,
     http-conduit, http-server==1.0.4, network, url,
     utf8-string, bytestring,
@@ -78,7 +78,7 @@ executable vt-server
 
 executable vt-graph
   build-depends:
-    base, containers, mtl, random, tagged,
+    base, time==1.4.*, containers, mtl, random, tagged,
     GLUT, gloss,
     http-conduit, http-server==1.0.4, network, url,
     utf8-string, bytestring,
@@ -89,7 +89,7 @@ executable vt-graph
 
 executable vt-progressbar
   build-depends:
-    base, containers, mtl, random, tagged,
+    base, time==1.4.*, containers, mtl, random, tagged,
     GLUT, gloss,
     http-conduit, http-server==1.0.4, network, url,
     utf8-string, bytestring,
@@ -100,7 +100,7 @@ executable vt-progressbar
 
 executable vt-parallelcomputation
   build-depends:
-    base, containers, mtl, random, tagged,
+    base, time==1.4.*, containers, mtl, random, tagged,
     GLUT, gloss,
     http-conduit, http-server==1.0.4, network, url,
     utf8-string, bytestring,
@@ -111,7 +111,7 @@ executable vt-parallelcomputation
 
 executable vt-circles
   build-depends:
-    base, containers, mtl, random, tagged,
+    base, time==1.4.*, containers, mtl, random, tagged,
     GLUT, gloss,
     http-conduit, http-server==1.0.4, network, url,
     utf8-string, bytestring,

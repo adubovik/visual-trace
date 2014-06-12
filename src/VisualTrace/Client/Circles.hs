@@ -49,9 +49,9 @@ runCircles send = do
             heads = zipWith3 (,,) h1 h2 h3
 
         forM_ heads $ \(cr1,cr2,cr3) -> do
-          send 0.05 cr1
-          send 0.05 cr2
-          send 0.05 cr3
+          send 0.0 cr1
+          send 0.0 cr2
+          send 0.0 cr3
 
         go (t1,t2,t3)
 

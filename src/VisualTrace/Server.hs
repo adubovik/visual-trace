@@ -22,18 +22,19 @@ module VisualTrace.Server
 
 import Prelude hiding (init)
 
+import Text.Printf
+import Data.Proxy
+import Data.IORef
+import qualified Data.Map as Map
+import Control.Concurrent.MVar
+import Control.Concurrent
+import Control.Monad
+
 import Options.Applicative
 import Network.HTTP.Server
 import Network.Socket
 import Network.URL
 import Codec.Binary.UTF8.String
-
-import Text.Printf
-import Data.Proxy
-import qualified Data.Map as Map
-import Control.Concurrent.MVar
-import Control.Concurrent
-import Control.Monad
 
 import qualified Graphics.UI.GLUT as GLUT
 import Graphics.Gloss.Interface.IO.Game
@@ -42,6 +43,8 @@ import Graphics.Gloss.Data.ViewState hiding (Command)
 import VisualTrace.HTTPConfig(HTTPConfig(..),Side(..),toHTTPServerConfig)
 import qualified VisualTrace.HTTPConfig as HTTPConfig
 
+import VisualTrace.Text
+import VisualTrace.Times
 import VisualTrace.Grid
 import VisualTrace.Data.EventInfo
 import VisualTrace.Data.Ext
@@ -70,6 +73,8 @@ data World = World
  , wLastFeedback :: !(Maybe (ExWrap Feedback))
  , wEventHistory :: !EventHistory
  , wBackground   :: BackgroudPicture
+ , wFPS          :: IORef Times
+ , wMPS          :: MVar Times
  }
 
 onServerImage :: Functor m => ImageTransformM m ->
@@ -109,7 +114,9 @@ handler world _addr _url req = do
         Left  msg  -> do
           putStrLn $ "Parse error: " ++ msg
           return img
-        Right img' -> return img'
+        Right img' -> do
+          modifyMVar_ (wMPS world) putTimeStamp
+          return img'
 
   onImage runCommand world
   return $ sendText OK ("Server received:\n" ++ show req)
@@ -231,6 +238,12 @@ timeEvolution secElapsed w = do
   (event, w') <- emitFakeEvent w
   handleEventStep (evolve secElapsed) event w'
 
+modifyIORefM :: (a -> IO a) -> IORef a -> IO ()
+modifyIORefM f ref = do
+  val <- readIORef ref
+  val' <- f val
+  writeIORef ref val'
+
 drawWorld :: World -> IO Picture
 drawWorld world@World{..} = do
   let viewPort = viewStateViewPort wViewState
@@ -238,14 +251,29 @@ drawWorld world@World{..} = do
   picture <- queryImage getPicture world
 
   windowSize <- getWindowSize
-  let backgroud = wBackground windowSize (invertViewPort viewPort)
+  let background = wBackground windowSize (invertViewPort viewPort)
 
-  return $ applyViewPortToPicture viewPort $
-    pictures [ backgroud, picture ]
+  modifyIORefM putTimeStamp wFPS
+  fps <- getCount <$> readIORef wFPS
+
+  modifyMVar_ wMPS updateTimes
+  mps <- getCount <$> readMVar  wMPS
+
+  let screenMsg = "FPS = " ++ show fps ++ "\n" ++
+                  "MSP = " ++ show mps
+      screenPic = textScreen (3,3) windowSize screenMsg
+
+  return $ pictures
+    [ applyViewPortToPicture viewPort $
+        pictures [ background, picture ]
+    , screenPic
+    ]
 
 initWorld :: BackgroudPicture -> ImageQuery (IO World)
 initWorld backgroud img = do
   image <- newMVar (ServerImage img)
+  fpsRef <- mkTimes 1.0 >>= newIORef
+  mpsRef <- mkTimes 1.0 >>= newMVar
   return $ World
     { wViewState = viewStateInitWithConfig $ Map.toList $
                      Map.fromList commandConfig <>
@@ -255,6 +283,8 @@ initWorld backgroud img = do
     , wLastFeedback = Nothing
     , wEventHistory = initEventHistory
     , wBackground = backgroud
+    , wFPS        = fpsRef
+    , wMPS        = mpsRef
     }
   where
     commandConfig = [oTranslate, oRotate, oRestore]

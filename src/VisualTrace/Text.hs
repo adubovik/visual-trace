@@ -1,3 +1,7 @@
+{-# language
+   ViewPatterns
+ #-}
+
 module VisualTrace.Text (
    text
  , textWithBackground
@@ -5,12 +9,14 @@ module VisualTrace.Text (
 
  , textHeight
  , textWidth
+ , textScreen
  ) where
 
 import System.IO.Unsafe
 
 import Control.Arrow
 
+import qualified Graphics.Gloss as G
 import Graphics.Gloss(Color)
 import VisualTrace.Data.Picture hiding (text)
 import qualified VisualTrace.Data.Picture as PF
@@ -66,3 +72,34 @@ textMultiLine textOneLine =
     textWithOffset idx str =
       translate (local 0.0) (local (-idx*fontHeight)) $
         textOneLine str
+
+toFloat :: Int -> Float
+toFloat = fromIntegral
+
+textScreen :: (Int,Int) -> (Int,Int) -> String -> G.Picture
+textScreen (toFloat -> screenX, toFloat -> screenY)
+           (toFloat ->    winX, toFloat ->    winY)
+           msg = msgPic
+  where
+    height = 15.0
+    nLines = toFloat $ length $ lines msg
+
+    scaleFactor = height/fontHeight
+
+    offsetX = -winX/2.0 + screenX
+    offsetY =  winY/2.0 - screenY - nLines*height
+
+    linesPics = G.pictures $
+                map drawLine $
+                zip [0..] $
+                reverse $ lines msg
+
+    drawLine (idx,msgLine) =
+      G.translate 0.0 (idx * height) $
+      G.scale scaleFactor scaleFactor $
+      G.text msgLine
+
+    msgPic = G.color G.white $
+             G.translate offsetX offsetY $
+             linesPics
+
