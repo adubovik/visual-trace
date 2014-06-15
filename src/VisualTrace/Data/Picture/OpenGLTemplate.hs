@@ -1,3 +1,23 @@
+{-# LANGUAGE QuasiQuotes #-}
+
+module VisualTrace.Data.Picture.OpenGLTemplate
+ ( openGLTemplate
+ ) where
+
+import Text.Heredoc
+
+openGLTemplate :: String
+openGLTemplate = [here|
+/* To compile and run:
+
+SRC=%s
+echo "Compiling..."
+gcc -O2 $SRC -o ImageGLSnapshot -lglut -lGL -lGLU -lm
+echo "Running..."
+./ImageGLSnapshot
+
+*/
+
 #include <GL/glut.h>
 #include <stdio.h>
 
@@ -21,7 +41,7 @@ GLfloat viewPortTop,viewPortBottom;
 /* Global state */
 
 GLfloat viewPortToLocalX(int x) {
-  int width  = glutGet(GLUT_WINDOW_WIDTH);
+  int width = glutGet(GLUT_WINDOW_WIDTH);
   GLfloat xLocal = (GLfloat)x/(GLfloat)width;
   xLocal = viewPortLeft + xLocal * (viewPortRight - viewPortLeft);
   return xLocal;
@@ -44,6 +64,14 @@ void display() {
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
 
+  /* Generated GL code */
+  %s
+  /* Generated GL code */
+
+  glutSwapBuffers();
+}
+
+void subDisplay() {
   glBegin(GL_QUADS);
     glColor3f(1.0f, 0.0f, 0.0f);
     glVertex2f(-0.5f, -0.5f);
@@ -51,8 +79,6 @@ void display() {
     glVertex2f( 0.5f,  0.5f);
     glVertex2f(-0.5f,  0.5f);
   glEnd();
-
-  glutSwapBuffers();
 }
 
 GLfloat calcAspect(GLsizei width, GLsizei height) {
@@ -159,7 +185,7 @@ int main(int argc, char** argv) {
 
   glutInitWindowSize(500, 500);
   glutInitWindowPosition(100, 100);
-  glutCreateWindow("GLUT app");
+  glutCreateWindow("Image Snapshot GLUT app (mouse wheel - zoom in/out; right mouse - translate)");
 
   glutReshapeFunc(reshape);
   glutDisplayFunc(display);
@@ -174,3 +200,4 @@ int main(int argc, char** argv) {
 
   return 0;
 }
+|]

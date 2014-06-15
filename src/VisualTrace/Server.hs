@@ -52,6 +52,7 @@ import VisualTrace.Data.ViewState.Focus
 import VisualTrace.Data.Ext.Utils
 import VisualTrace.Data.Feedback
 import VisualTrace.Data.Feedback.FeedbackStorage
+import VisualTrace.Data.Picture.OpenGL
 
 import VisualTrace.Protocol.Image
 import VisualTrace.Protocol.Image.CachedImage
@@ -213,6 +214,21 @@ eventHandler :: EventHandler
 eventHandler e =
       handleEventStep id e
   >=> rescaleHandler e
+  >=> openGLSnapshotHandler e
+
+openGLSnapshotHandler :: EventHandler
+openGLSnapshotHandler (EventKey (Char 's') Down _mod _pos) w@World{..} = do
+  let viewPort = viewStateViewPort wViewState
+      getPicture image = draw viewPort image
+  picture <- queryImage getPicture w
+
+  let glShapshotFile = "/home/anton/code/haskell/visual-trace/test/GLUTApp/ImageSnapshot.cpp"
+  generateOpenGLApp picture glShapshotFile
+  putStrLn $ printf "GL snapshot was saved to %s" glShapshotFile
+
+  return w
+
+openGLSnapshotHandler _e w = return w
 
 rescaleHandler :: EventHandler
 rescaleHandler (EventKey (Char 'r') Down _mod _pos) w@World{..} = do
